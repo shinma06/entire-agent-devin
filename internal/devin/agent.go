@@ -119,12 +119,31 @@ func ParseHook(hook string, stdin io.Reader, repoRoot string) (*protocol.Event, 
 		return nil, nil
 	}
 
-	added, err := recordOnce(ref, hook+"|"+p.PromptID+"|"+p.ToolUseID+"|"+p.Source, rec)
+	if hook == HookPostToolUse && p.PromptID != "" {
+		// Devin fires no UserPromptSubmit for a session's initial prompt, so the first
+		// tool call of an unseen prompt opens the turn instead.
+		user := Record{V: 1, TS: ts, SessionID: p.SessionID, PromptID: p.PromptID, Kind: KindUser}
+		opened, err := recordOnce(ref, turnKey(p.PromptID), user)
+		if err != nil {
+			return nil, err
+		}
+		if opened {
+			ev = &protocol.Event{Type: protocol.EventTurnStart, SessionID: p.SessionID, SessionRef: ref, Timestamp: ts, Model: p.Model}
+		}
+	}
+
+	key := hook + "|" + p.PromptID + "|" + p.ToolUseID + "|" + p.Source
+	if hook == HookUserPromptSubmit {
+		key = turnKey(p.PromptID)
+	}
+	added, err := recordOnce(ref, key, rec)
 	if err != nil || !added {
 		return nil, err
 	}
 	return ev, nil
 }
+
+func turnKey(promptID string) string { return HookUserPromptSubmit + "|" + promptID }
 
 // recordOnce appends rec unless key was already recorded. The same Devin hook can
 // reach Entire twice (plugin + project hooks), possibly concurrently, so the
