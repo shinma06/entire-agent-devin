@@ -5,7 +5,7 @@
       "hooks": [
         {
           "type": "command",
-          "command": "command -v entire-agent-devin >/dev/null 2>&1 && entire-agent-devin dispatch --hook session-start || true",
+          "command": "PATH=\"$HOME/go/bin:$HOME/.local/bin:$PATH\"; command -v entire-agent-devin >/dev/null 2>&1 && entire-agent-devin dispatch --hook session-start || true",
           "timeout": 60
         }
       ]
@@ -17,7 +17,7 @@
       "hooks": [
         {
           "type": "command",
-          "command": "command -v entire-agent-devin >/dev/null 2>&1 && entire-agent-devin dispatch --hook user-prompt-submit || true",
+          "command": "PATH=\"$HOME/go/bin:$HOME/.local/bin:$PATH\"; command -v entire-agent-devin >/dev/null 2>&1 && entire-agent-devin dispatch --hook user-prompt-submit || true",
           "timeout": 60
         }
       ]
@@ -29,7 +29,7 @@
       "hooks": [
         {
           "type": "command",
-          "command": "command -v entire-agent-devin >/dev/null 2>&1 && entire-agent-devin dispatch --hook post-tool-use || true",
+          "command": "PATH=\"$HOME/go/bin:$HOME/.local/bin:$PATH\"; command -v entire-agent-devin >/dev/null 2>&1 && entire-agent-devin dispatch --hook post-tool-use || true",
           "timeout": 60
         }
       ]
@@ -41,7 +41,7 @@
       "hooks": [
         {
           "type": "command",
-          "command": "command -v entire-agent-devin >/dev/null 2>&1 && entire-agent-devin dispatch --hook stop || true",
+          "command": "PATH=\"$HOME/go/bin:$HOME/.local/bin:$PATH\"; command -v entire-agent-devin >/dev/null 2>&1 && entire-agent-devin dispatch --hook stop || true",
           "timeout": 60
         }
       ]
@@ -53,7 +53,7 @@
       "hooks": [
         {
           "type": "command",
-          "command": "command -v entire-agent-devin >/dev/null 2>&1 && entire-agent-devin dispatch --hook post-compaction || true",
+          "command": "PATH=\"$HOME/go/bin:$HOME/.local/bin:$PATH\"; command -v entire-agent-devin >/dev/null 2>&1 && entire-agent-devin dispatch --hook post-compaction || true",
           "timeout": 60
         }
       ]
@@ -65,7 +65,7 @@
       "hooks": [
         {
           "type": "command",
-          "command": "command -v entire-agent-devin >/dev/null 2>&1 && entire-agent-devin dispatch --hook session-end || true",
+          "command": "PATH=\"$HOME/go/bin:$HOME/.local/bin:$PATH\"; command -v entire-agent-devin >/dev/null 2>&1 && entire-agent-devin dispatch --hook session-end || true",
           "timeout": 60
         }
       ]
