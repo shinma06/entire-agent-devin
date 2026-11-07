@@ -114,7 +114,7 @@ func modifiedFiles(records []Record, repoRoot string) []string {
 	seen := map[string]bool{}
 	files := []string{}
 	for _, r := range records {
-		if r.Kind != KindTool || !isWriteTool(r.ToolName) {
+		if r.Kind != KindTool || !isWriteTool(r.ToolName) || toolFailed(r.ToolResponse) {
 			continue
 		}
 		m := inputMap(r.ToolInput)
@@ -130,6 +130,16 @@ func modifiedFiles(records []Record, repoRoot string) []string {
 		}
 	}
 	return files
+}
+
+// toolFailed reports whether a Devin tool_response ({success, output, error}) signals failure.
+func toolFailed(raw json.RawMessage) bool {
+	m := inputMap(raw)
+	if ok, isBool := m["success"].(bool); isBool && !ok {
+		return true
+	}
+	e, _ := m["error"].(string)
+	return e != ""
 }
 
 func repoRelative(p, repoRoot string) string {

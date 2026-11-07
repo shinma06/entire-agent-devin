@@ -187,3 +187,13 @@ func TestParseHookConcurrentDuplicates(t *testing.T) {
 		t.Fatalf("events=%d records=%d, want 1 and 1", n, len(recs))
 	}
 }
+
+func TestModifiedFilesSkipsFailedTools(t *testing.T) {
+	recs := []Record{
+		{Kind: KindTool, ToolName: "edit", ToolInput: []byte(`{"file_path":"a.go"}`), ToolResponse: []byte(`{"success":false,"output":"","error":"no match"}`)},
+		{Kind: KindTool, ToolName: "edit", ToolInput: []byte(`{"file_path":"b.go"}`), ToolResponse: []byte(`{"success":true,"output":"ok","error":null}`)},
+	}
+	if got := ModifiedFiles(recs, "/repo"); len(got) != 1 || got[0] != "b.go" {
+		t.Fatalf("got %v", got)
+	}
+}
