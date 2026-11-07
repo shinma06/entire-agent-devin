@@ -1,0 +1,34 @@
+{
+  "cli_version": "0.13.1",
+  "checkpoint_id": "7bbee6a70995",
+  "strategy": "manual-commit",
+  "branch": "devin/1794055784-session-bootstrap",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "internal/devin/bootstrap.go",
+    "internal/devin/bootstrap_test.go"
+  ],
+  "sessions": [
+    {
+      "metadata": "/7b/bee6a70995/0/metadata.json",
+      "transcript": "/7b/bee6a70995/0/full.jsonl",
+      "compact_transcript": "/7b/bee6a70995/0/transcript.jsonl",
+      "content_hash": "/7b/bee6a70995/0/content_hash.txt",
+      "prompt": "/7b/bee6a70995/0/prompt.txt"
+    }
+  ],
+  "redaction": {
+    "replacements": 2,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 2,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  }
+}
