@@ -1,0 +1,34 @@
+{
+  "cli_version": "0.13.1",
+  "checkpoint_id": "2e3a01a0c964",
+  "strategy": "manual-commit",
+  "branch": "devin/1794056765-private-hooks",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "internal/devin/bootstrap.go",
+    "internal/devin/bootstrap_test.go"
+  ],
+  "sessions": [
+    {
+      "metadata": "/2e/3a01a0c964/0/metadata.json",
+      "transcript": "/2e/3a01a0c964/0/full.jsonl",
+      "compact_transcript": "/2e/3a01a0c964/0/transcript.jsonl",
+      "content_hash": "/2e/3a01a0c964/0/content_hash.txt",
+      "prompt": "/2e/3a01a0c964/0/prompt.txt"
+    }
+  ],
+  "redaction": {
+    "replacements": 2,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 2,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  }
+}
