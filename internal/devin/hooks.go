@@ -44,11 +44,6 @@ type hookCommand struct {
 	Timeout int    `json:"timeout,omitempty"`
 }
 
-type matcherGroup struct {
-	Matcher string        `json:"matcher"`
-	Hooks   []hookCommand `json:"hooks"`
-}
-
 // HooksFile is the project-level Devin hooks config written by install-hooks.
 func HooksFile(repoRoot string) string {
 	return filepath.Join(repoRoot, ".devin", "hooks.v1.json")
@@ -90,29 +85,72 @@ func writeHooksConfig(path string, cfg map[string]json.RawMessage) error {
 	return os.WriteFile(path, append(data, '\n'), 0o644)
 }
 
-// stripEntireHooks removes Entire commands from one event's matcher groups.
-func stripEntireHooks(raw json.RawMessage) ([]matcherGroup, bool) {
-	var groups []matcherGroup
-	if json.Unmarshal(raw, &groups) != nil {
-		return nil, false
+type group = map[string]json.RawMessage
+
+// stripEntireHooks removes Entire commands from one event's matcher groups,
+// keeping every other group, hook and field as written.
+func stripEntireHooks(event string, raw json.RawMessage) ([]group, bool, error) {
+	if len(raw) == 0 {
+		return nil, false, nil
+	}
+	var groups []group
+	if err := json.Unmarshal(raw, &groups); err != nil {
+		return nil, false, fmt.Errorf("%s: unsupported hook config: %w", event, err)
 	}
 	removed := false
 	kept := groups[:0]
 	for _, g := range groups {
-		hooks := g.Hooks[:0]
-		for _, h := range g.Hooks {
-			if strings.HasPrefix(h.Command, entireHookPrefix) {
+		var hooks []group
+		if json.Unmarshal(g["hooks"], &hooks) != nil {
+			kept = append(kept, g)
+			continue
+		}
+		rest := hooks[:0]
+		for _, h := range hooks {
+			if strings.HasPrefix(hookCommandOf(h), entireHookPrefix) {
 				removed = true
 				continue
 			}
-			hooks = append(hooks, h)
+			rest = append(rest, h)
 		}
-		if len(hooks) > 0 {
-			g.Hooks = hooks
+		if len(rest) == len(hooks) {
 			kept = append(kept, g)
+			continue
+		}
+		if len(rest) == 0 {
+			continue
+		}
+		data, err := json.Marshal(rest)
+		if err != nil {
+			return nil, false, err
+		}
+		g["hooks"] = data
+		kept = append(kept, g)
+	}
+	return kept, removed, nil
+}
+
+func hookCommandOf(h group) string {
+	var cmd string
+	_ = json.Unmarshal(h["command"], &cmd)
+	return cmd
+}
+
+func hasHookCommand(raw json.RawMessage, command string) bool {
+	var groups []group
+	if json.Unmarshal(raw, &groups) != nil {
+		return false
+	}
+	for _, g := range groups {
+		var hooks []group
+		_ = json.Unmarshal(g["hooks"], &hooks)
+		for _, h := range hooks {
+			if hookCommandOf(h) == command {
+				return true
+			}
 		}
 	}
-	return kept, removed
+	return false
 }
 
 func InstallHooks(repoRoot string, force bool) (int, error) {
@@ -125,9 +163,22 @@ func InstallHooks(repoRoot string, force bool) (int, error) {
 		return 0, nil
 	}
 	for _, e := range devinHookEvents {
-		groups, _ := stripEntireHooks(cfg[e.Event])
-		groups = append(groups, matcherGroup{Hooks: []hookCommand{{Type: "command", Command: entireHookPrefix + e.Hook, Timeout: 60}}})
-		data, err := json.Marshal(groups)
+		groups, _, err := stripEntireHooks(e.Event, cfg[e.Event])
+		if err != nil {
+			return 0, err
+		}
+		entire, err := json.Marshal(map[string]any{
+			"matcher": "",
+			"hooks":   []hookCommand{{Type: "command", Command: entireHookPrefix + e.Hook, Timeout: 60}},
+		})
+		if err != nil {
+			return 0, err
+		}
+		var g group
+		if err := json.Unmarshal(entire, &g); err != nil {
+			return 0, err
+		}
+		data, err := json.Marshal(append(groups, g))
 		if err != nil {
 			return 0, err
 		}
@@ -143,8 +194,8 @@ func UninstallHooks(repoRoot string) error {
 		return err
 	}
 	for event, raw := range cfg {
-		groups, removed := stripEntireHooks(raw)
-		if !removed {
+		groups, removed, err := stripEntireHooks(event, raw)
+		if err != nil || !removed {
 			continue
 		}
 		if len(groups) == 0 {
@@ -168,11 +219,12 @@ func AreHooksInstalled(repoRoot string) (bool, error) {
 	return hooksInstalled(cfg), nil
 }
 
+// hooksInstalled reports whether every Entire hook is present.
 func hooksInstalled(cfg map[string]json.RawMessage) bool {
-	for _, raw := range cfg {
-		if _, removed := stripEntireHooks(raw); removed {
-			return true
+	for _, e := range devinHookEvents {
+		if !hasHookCommand(cfg[e.Event], entireHookPrefix+e.Hook) {
+			return false
 		}
 	}
-	return false
+	return true
 }

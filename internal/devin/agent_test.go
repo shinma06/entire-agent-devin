@@ -104,7 +104,7 @@ func TestHooksInstallPreservesUserHooks(t *testing.T) {
 	repo := t.TempDir()
 	path := HooksFile(repo)
 	_ = os.MkdirAll(filepath.Dir(path), 0o755)
-	user := `{"PreToolUse":[{"matcher":"exec","hooks":[{"type":"command","command":"./check.sh"}]}]}`
+	user := `{"PreToolUse":[{"matcher":"exec","hooks":[{"type":"command","command":"./check.sh","async":true}]}],"Stop":[{"matcher":"","x":1,"hooks":[{"type":"command","command":"./stop.sh"}]}]}`
 	if err := os.WriteFile(path, []byte(user), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -117,11 +117,24 @@ func TestHooksInstallPreservesUserHooks(t *testing.T) {
 	if ok, _ := AreHooksInstalled(repo); !ok {
 		t.Fatal("hooks not reported installed")
 	}
+	partial, _ := os.ReadFile(path)
+	_ = os.WriteFile(path, []byte(strings.Replace(string(partial), entireHookPrefix+HookStop, "./other.sh", 1)), 0o644)
+	if ok, _ := AreHooksInstalled(repo); ok {
+		t.Fatal("partial install reported as installed")
+	}
+	if n, _ := InstallHooks(repo, false); n != len(devinHookEvents) {
+		t.Fatalf("partial install not repaired, got %d", n)
+	}
 	if err := UninstallHooks(repo); err != nil {
 		t.Fatal(err)
 	}
 	data, _ := os.ReadFile(path)
-	if !strings.Contains(string(data), "./check.sh") || strings.Contains(string(data), entireHookPrefix) {
+	for _, want := range []string{`"async": true`, `"x": 1`, "./stop.sh", "./other.sh"} {
+		if !strings.Contains(string(data), want) {
+			t.Fatalf("uninstall lost %s: %s", want, data)
+		}
+	}
+	if strings.Contains(string(data), entireHookPrefix) {
 		t.Fatalf("uninstall left wrong content: %s", data)
 	}
 }
