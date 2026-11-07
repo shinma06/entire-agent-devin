@@ -114,6 +114,7 @@ var clientHooks = []string{
 	"applypatch-msg", "pre-applypatch", "post-applypatch", "pre-commit", "pre-merge-commit",
 	"prepare-commit-msg", "commit-msg", "post-commit", "pre-rebase", "post-checkout", "post-merge",
 	"pre-push", "post-rewrite", "pre-auto-gc", "push-to-checkout", "sendemail-validate",
+	"reference-transaction", "post-index-change",
 }
 
 func exists(path string) bool {
