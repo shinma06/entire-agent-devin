@@ -36,12 +36,15 @@ func TestBootstrap(t *testing.T) {
 	if out, err := exec.Command("git", "-C", repo, "remote", "set-url", "--push", CheckpointRemote, "https://example.com/public.git").CombinedOutput(); err != nil {
 		t.Fatalf("set pushurl: %v: %s", err, out)
 	}
+	if out, err := exec.Command("git", "-C", repo, "remote", "set-url", "--add", CheckpointRemote, "https://example.com/extra.git").CombinedOutput(); err != nil {
+		t.Fatalf("add url: %v: %s", err, out)
+	}
 	for _, r := range []string{"me/ckpt"} {
 		if err := Bootstrap(sub, r, io.Discard); err != nil {
 			t.Fatalf("Bootstrap(%s): %v", r, err)
 		}
 	}
-	out, err := exec.Command("git", "-C", repo, "config", "--get", "remote."+CheckpointRemote+".url").Output()
+	out, err := exec.Command("git", "-C", repo, "config", "--get-all", "remote."+CheckpointRemote+".url").Output()
 	if err != nil || strings.TrimSpace(string(out)) != "https://github.com/me/ckpt.git" {
 		t.Fatalf("checkpoints remote = %q, %v", out, err)
 	}

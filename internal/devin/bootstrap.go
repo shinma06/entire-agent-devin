@@ -43,10 +43,10 @@ func Bootstrap(repoRoot, checkpointRepo string, out io.Writer) error {
 			return err
 		}
 	} else {
-		if err := git(repoRoot, "remote", "set-url", CheckpointRemote, url); err != nil {
+		if err := git(repoRoot, "config", "--replace-all", "remote."+CheckpointRemote+".url", url); err != nil {
 			return err
 		}
-		// A leftover pushurl would keep sending checkpoints to the old destination.
+		// Extra urls or a leftover pushurl would keep sending checkpoints to the old destination.
 		_ = git(repoRoot, "config", "--unset-all", "remote."+CheckpointRemote+".pushurl")
 	}
 	if err := allowExternalAgents(repoRoot); err != nil {
