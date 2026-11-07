@@ -1,0 +1,63 @@
+{
+  "SessionStart": {
+    "hook_event_name": "SessionStart",
+    "source": "resume",
+    "session_id": "devin-0123456789abcdef",
+    "prompt_id": "22bc0134-0991-4938-8c36-cdc9e4692abb"
+  },
+  "UserPromptSubmit": {
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "<received_chat_message from=\"Shinma\" source=\"web\" message_id=\"event-1\">\nFix the login bug\n</received_chat_message>",
+    "source": "user",
+    "session_id": "devin-0123456789abcdef",
+    "prompt_id": "6eb3590f-faec-4a02-a085-dc3f6baead5c"
+  },
+  "Stop": {
+    "hook_event_name": "Stop",
+    "stop_hook_active": false,
+    "last_assistant_message": "",
+    "session_id": "devin-0123456789abcdef",
+    "prompt_id": "6eb3590f-faec-4a02-a085-dc3f6baead5c"
+  },
+  "PostToolUseReprResponse": {
+    "hook_event_name": "PostToolUse",
+    "tool_name": "exec",
+    "tool_input": {
+      "command": "ls"
+    },
+    "tool_use_id": "toolu_1",
+    "tool_response": "{'success': True, 'output': 'a.txt\\nb\\'s file', 'error': None}",
+    "session_id": "devin-0123456789abcdef",
+    "prompt_id": "p1"
+  },
+  "PostToolUseReprInput": {
+    "hook_event_name": "PostToolUse",
+    "tool_name": "message_user",
+    "tool_input": "{'message': 'Done: fixed the bug', 'block_on_user': False, 'attachments': []}",
+    "tool_use_id": "toolu_2",
+    "tool_response": {
+      "success": true,
+      "output": "Message sent to user.",
+      "error": null
+    },
+    "session_id": "devin-0123456789abcdef",
+    "prompt_id": "p1"
+  },
+  "PostToolUseEdit": {
+    "hook_event_name": "PostToolUse",
+    "tool_name": "edit",
+    "tool_input": {
+      "file_path": "/REPO/src/main.go",
+      "old_string": "a",
+      "new_string": "b"
+    },
+    "tool_use_id": "toolu_3",
+    "tool_response": {
+      "success": true,
+      "output": "ok",
+      "error": null
+    },
+    "session_id": "devin-0123456789abcdef",
+    "prompt_id": "p1"
+  }
+}

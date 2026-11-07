@@ -1,0 +1,74 @@
+{
+  "SessionStart": [
+    {
+      "matcher": "",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "PATH=\"$HOME/go/bin:$HOME/.local/bin:$PATH\"; command -v entire-agent-devin >/dev/null 2>&1 || exit 0; p=$(cat); entire-agent-devin dispatch-targets | while IFS= read -r d; do (cd \"$d\" && printf '%s' \"$p\" | entire hooks devin session-start >/dev/null); done; exit 0",
+          "timeout": 60
+        }
+      ]
+    }
+  ],
+  "UserPromptSubmit": [
+    {
+      "matcher": "",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "PATH=\"$HOME/go/bin:$HOME/.local/bin:$PATH\"; command -v entire-agent-devin >/dev/null 2>&1 || exit 0; p=$(cat); entire-agent-devin dispatch-targets | while IFS= read -r d; do (cd \"$d\" && printf '%s' \"$p\" | entire hooks devin user-prompt-submit >/dev/null); done; exit 0",
+          "timeout": 60
+        }
+      ]
+    }
+  ],
+  "PostToolUse": [
+    {
+      "matcher": "",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "PATH=\"$HOME/go/bin:$HOME/.local/bin:$PATH\"; command -v entire-agent-devin >/dev/null 2>&1 || exit 0; p=$(cat); entire-agent-devin dispatch-targets | while IFS= read -r d; do (cd \"$d\" && printf '%s' \"$p\" | entire hooks devin post-tool-use >/dev/null); done; exit 0",
+          "timeout": 60
+        }
+      ]
+    }
+  ],
+  "Stop": [
+    {
+      "matcher": "",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "PATH=\"$HOME/go/bin:$HOME/.local/bin:$PATH\"; command -v entire-agent-devin >/dev/null 2>&1 || exit 0; p=$(cat); entire-agent-devin dispatch-targets | while IFS= read -r d; do (cd \"$d\" && printf '%s' \"$p\" | entire hooks devin stop >/dev/null); done; exit 0",
+          "timeout": 60
+        }
+      ]
+    }
+  ],
+  "PostCompaction": [
+    {
+      "matcher": "",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "PATH=\"$HOME/go/bin:$HOME/.local/bin:$PATH\"; command -v entire-agent-devin >/dev/null 2>&1 || exit 0; p=$(cat); entire-agent-devin dispatch-targets | while IFS= read -r d; do (cd \"$d\" && printf '%s' \"$p\" | entire hooks devin post-compaction >/dev/null); done; exit 0",
+          "timeout": 60
+        }
+      ]
+    }
+  ],
+  "SessionEnd": [
+    {
+      "matcher": "",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "PATH=\"$HOME/go/bin:$HOME/.local/bin:$PATH\"; command -v entire-agent-devin >/dev/null 2>&1 || exit 0; p=$(cat); entire-agent-devin dispatch-targets | while IFS= read -r d; do (cd \"$d\" && printf '%s' \"$p\" | entire hooks devin session-end >/dev/null); done; exit 0",
+          "timeout": 60
+        }
+      ]
+    }
+  ]
+}
