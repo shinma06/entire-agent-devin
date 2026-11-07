@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/shinma06/entire-agent-devin/internal/protocol"
@@ -141,5 +142,35 @@ func TestChunkTranscriptRoundTrip(t *testing.T) {
 	chunks := ChunkTranscript(data, 10)
 	if len(chunks) < 2 || string(bytes.Join(chunks, nil)) != string(data) {
 		t.Fatalf("bad chunks: %q", chunks)
+	}
+}
+
+func TestParseHookConcurrentDuplicates(t *testing.T) {
+	repo := t.TempDir()
+	stop := loadPayloads(t, repo)["Stop"]
+	events := make(chan *protocol.Event, 8)
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			ev, err := ParseHook(HookStop, strings.NewReader(stop), repo)
+			if err != nil {
+				t.Error(err)
+			}
+			events <- ev
+		}()
+	}
+	wg.Wait()
+	close(events)
+	n := 0
+	for ev := range events {
+		if ev != nil {
+			n++
+		}
+	}
+	recs, _, _ := RecordsFrom(SessionFile(SessionDir(repo), "devin-0123456789abcdef"), 0)
+	if n != 1 || len(recs) != 1 {
+		t.Fatalf("events=%d records=%d, want 1 and 1", n, len(recs))
 	}
 }

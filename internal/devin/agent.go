@@ -119,39 +119,50 @@ func ParseHook(hook string, stdin io.Reader, repoRoot string) (*protocol.Event, 
 		return nil, nil
 	}
 
-	dup, err := markSeen(ref, hook+"|"+p.PromptID+"|"+p.ToolUseID+"|"+p.Source)
-	if err != nil {
-		return nil, err
-	}
-	if dup {
-		return nil, nil
-	}
-	if err := appendRecord(ref, rec); err != nil {
+	added, err := recordOnce(ref, hook+"|"+p.PromptID+"|"+p.ToolUseID+"|"+p.Source, rec)
+	if err != nil || !added {
 		return nil, err
 	}
 	return ev, nil
 }
 
-// markSeen guards against the same Devin hook reaching Entire twice (plugin + project hooks).
-func markSeen(ref, key string) (bool, error) {
-	path := strings.TrimSuffix(ref, ".jsonl") + ".seen"
-	if data, err := os.ReadFile(path); err == nil {
-		for _, line := range strings.Split(string(data), "\n") {
-			if line == key {
-				return true, nil
-			}
-		}
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+// recordOnce appends rec unless key was already recorded. The same Devin hook can
+// reach Entire twice (plugin + project hooks), possibly concurrently, so the
+// check, the append and marking the key happen under one file lock.
+func recordOnce(ref, key string, rec Record) (bool, error) {
+	base := strings.TrimSuffix(ref, ".jsonl")
+	if err := os.MkdirAll(filepath.Dir(ref), 0o750); err != nil {
 		return false, err
 	}
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+	lock, err := os.OpenFile(base+".lock", os.O_CREATE|os.O_RDWR, 0o600)
 	if err != nil {
 		return false, err
 	}
+	defer lock.Close()
+	unlock, err := lockFile(lock)
+	if err != nil {
+		return false, err
+	}
+	defer unlock()
+
+	seenPath := base + ".seen"
+	if data, err := os.ReadFile(seenPath); err == nil {
+		for _, line := range strings.Split(string(data), "\n") {
+			if line == key {
+				return false, nil
+			}
+		}
+	}
+	if err := appendRecord(ref, rec); err != nil {
+		return false, err
+	}
+	f, err := os.OpenFile(seenPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+	if err != nil {
+		return true, err
+	}
 	defer f.Close()
 	_, err = f.WriteString(key + "\n")
-	return false, err
+	return true, err
 }
 
 func appendRecord(ref string, rec Record) error {
