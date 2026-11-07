@@ -205,3 +205,56 @@ func TestCleanPromptQuotedArtifact(t *testing.T) {
 		t.Fatalf("cleanPrompt = %q, want %q", got, want)
 	}
 }
+
+func TestFirstToolCallOpensTurn(t *testing.T) {
+	repo := t.TempDir()
+	parse := func(hook, body string) *protocol.Event {
+		t.Helper()
+		ev, err := ParseHook(hook, strings.NewReader(body), repo)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return ev
+	}
+	tool := func(id string) string {
+		return `{"session_id":"devin-x","prompt_id":"p1","tool_name":"exec","tool_use_id":"` + id + `","tool_input":{},"tool_response":"{}"}`
+	}
+	if ev := parse(HookPostToolUse, tool("t1")); ev == nil || ev.Type != protocol.EventTurnStart {
+		t.Fatalf("first tool call = %+v, want TurnStart", ev)
+	}
+	if ev := parse(HookPostToolUse, tool("t2")); ev != nil {
+		t.Fatalf("second tool call = %+v, want nil", ev)
+	}
+	if ev := parse(HookUserPromptSubmit, `{"session_id":"devin-x","prompt_id":"p2","prompt":"hi"}`); ev == nil || ev.Type != protocol.EventTurnStart {
+		t.Fatalf("prompt = %+v", ev)
+	}
+	if ev := parse(HookPostToolUse, `{"session_id":"devin-x","prompt_id":"p2","tool_name":"exec","tool_use_id":"t3","tool_input":{},"tool_response":"{}"}`); ev != nil {
+		t.Fatalf("tool call after prompt = %+v, want nil", ev)
+	}
+}
+
+func TestToolCallKeepsTurnOpenedBeforeUpgrade(t *testing.T) {
+	repo := t.TempDir()
+	ref := SessionFile(SessionDir(repo), "devin-x")
+	if _, err := recordOnce(ref, legacyTurnKey("p1"), Record{V: 1, SessionID: "devin-x", Kind: KindUser}); err != nil {
+		t.Fatal(err)
+	}
+	body := `{"session_id":"devin-x","prompt_id":"p1","tool_name":"exec","tool_use_id":"t1","tool_input":{},"tool_response":"{}"}`
+	ev, err := ParseHook(HookPostToolUse, strings.NewReader(body), repo)
+	if err != nil || ev != nil {
+		t.Fatalf("tool call = %+v, %v; want nil", ev, err)
+	}
+}
+
+func TestTurnStartSurvivesDuplicateToolDelivery(t *testing.T) {
+	repo := t.TempDir()
+	ref := SessionFile(SessionDir(repo), "devin-x")
+	if _, err := recordOnce(ref, HookPostToolUse+"|p1|t1|", Record{V: 1, SessionID: "devin-x", Kind: KindTool}); err != nil {
+		t.Fatal(err)
+	}
+	body := `{"session_id":"devin-x","prompt_id":"p1","tool_name":"exec","tool_use_id":"t1","tool_input":{},"tool_response":"{}"}`
+	ev, err := ParseHook(HookPostToolUse, strings.NewReader(body), repo)
+	if err != nil || ev == nil || ev.Type != protocol.EventTurnStart {
+		t.Fatalf("tool call = %+v, %v; want TurnStart", ev, err)
+	}
+}

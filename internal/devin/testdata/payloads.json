@@ -28,7 +28,7 @@
     "tool_use_id": "toolu_1",
     "tool_response": "{'success': True, 'output': 'a.txt\\nb\\'s file', 'error': None}",
     "session_id": "devin-0123456789abcdef",
-    "prompt_id": "p1"
+    "prompt_id": "6eb3590f-faec-4a02-a085-dc3f6baead5c"
   },
   "PostToolUseReprInput": {
     "hook_event_name": "PostToolUse",
@@ -41,7 +41,7 @@
       "error": null
     },
     "session_id": "devin-0123456789abcdef",
-    "prompt_id": "p1"
+    "prompt_id": "6eb3590f-faec-4a02-a085-dc3f6baead5c"
   },
   "PostToolUseEdit": {
     "hook_event_name": "PostToolUse",
@@ -58,6 +58,6 @@
       "error": null
     },
     "session_id": "devin-0123456789abcdef",
-    "prompt_id": "p1"
+    "prompt_id": "6eb3590f-faec-4a02-a085-dc3f6baead5c"
   }
 }

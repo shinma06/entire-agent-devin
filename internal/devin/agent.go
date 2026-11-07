@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -119,17 +120,47 @@ func ParseHook(hook string, stdin io.Reader, repoRoot string) (*protocol.Event, 
 		return nil, nil
 	}
 
-	added, err := recordOnce(ref, hook+"|"+p.PromptID+"|"+p.ToolUseID+"|"+p.Source, rec)
+	opened := false
+	if hook == HookPostToolUse && p.PromptID != "" {
+		// Devin fires no UserPromptSubmit for a session's initial prompt, so the first
+		// tool call of an unseen prompt opens the turn instead.
+		user := Record{V: 1, TS: ts, SessionID: p.SessionID, PromptID: p.PromptID, Kind: KindUser}
+		var err error
+		if opened, err = recordOnce(ref, turnKey(p.PromptID), user, legacyTurnKey(p.PromptID)); err != nil {
+			return nil, err
+		}
+		if opened {
+			ev = &protocol.Event{Type: protocol.EventTurnStart, SessionID: p.SessionID, SessionRef: ref, Timestamp: ts, Model: p.Model}
+		}
+	}
+
+	key := hook + "|" + p.PromptID + "|" + p.ToolUseID + "|" + p.Source
+	var aliases []string
+	if hook == HookUserPromptSubmit {
+		key, aliases = turnKey(p.PromptID), []string{legacyTurnKey(p.PromptID)}
+	}
+	added, err := recordOnce(ref, key, rec, aliases...)
+	if opened {
+		// The turn is already marked open; its TurnStart must reach Entire even if a
+		// concurrent duplicate delivery recorded this tool call first.
+		return ev, nil
+	}
 	if err != nil || !added {
 		return nil, err
 	}
 	return ev, nil
 }
 
+func turnKey(promptID string) string { return HookUserPromptSubmit + "|" + promptID }
+
+// legacyTurnKey is the key earlier versions recorded for a submitted prompt, kept so
+// an upgrade during a session does not reopen its current turn.
+func legacyTurnKey(promptID string) string { return HookUserPromptSubmit + "|" + promptID + "||user" }
+
 // recordOnce appends rec unless key was already recorded. The same Devin hook can
 // reach Entire twice (plugin + project hooks), possibly concurrently, so the
 // check, the append and marking the key happen under one file lock.
-func recordOnce(ref, key string, rec Record) (bool, error) {
+func recordOnce(ref, key string, rec Record, aliases ...string) (bool, error) {
 	base := strings.TrimSuffix(ref, ".jsonl")
 	if err := os.MkdirAll(filepath.Dir(ref), 0o750); err != nil {
 		return false, err
@@ -148,7 +179,7 @@ func recordOnce(ref, key string, rec Record) (bool, error) {
 	seenPath := base + ".seen"
 	if data, err := os.ReadFile(seenPath); err == nil {
 		for _, line := range strings.Split(string(data), "\n") {
-			if line == key {
+			if line == key || slices.Contains(aliases, line) {
 				return false, nil
 			}
 		}
