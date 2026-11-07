@@ -54,6 +54,11 @@ required in Devin clones: their `origin` is a git proxy URL whose owner Entire c
 checkpoint repository, so without it Entire pushes transcripts to `origin`. The plugin's `Stop` hook
 uploads new checkpoints to the `checkpoints` remote, so no Entire login is needed.
 
+If `core.hooksPath` points at hooks committed to the repository (e.g. `.githooks`), `bootstrap`
+redirects it to `.git/entire-hooks`, whose wrappers run the committed hooks, so `entire enable` never
+rewrites tracked files. Files Entire generates are added to `.git/info/exclude`. Untracked settings
+are per worktree: run `bootstrap` again in each new `git worktree`.
+
 ## Development
 
 ```bash

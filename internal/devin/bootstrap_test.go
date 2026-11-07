@@ -66,3 +66,73 @@ func TestBootstrap(t *testing.T) {
 		t.Fatal("Bootstrap accepted a repo without owner")
 	}
 }
+
+func TestBootstrapKeepsTrackedHooks(t *testing.T) {
+	repo := t.TempDir()
+	run := func(args ...string) string {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = repo
+		cmd.Env = append(os.Environ(), "GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@t", "GIT_COMMITTER_NAME=t", "GIT_COMMITTER_EMAIL=t@t")
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %v: %s", args, err, out)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	run("init", "-q")
+	if err := os.MkdirAll(filepath.Join(repo, ".githooks"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repo, ".githooks", "pre-commit"), []byte("#!/bin/sh\ntouch \"$(git rev-parse --show-toplevel)/.git/ran\"\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	run("add", ".githooks")
+	run("commit", "-qm", "hooks", "--no-verify")
+	run("config", "--local", "core.hooksPath", ".githooks")
+
+	orig := runEntireEnable
+	runEntireEnable = func(root string, _ io.Writer) error {
+		hooks := run("rev-parse", "--path-format=absolute", "--git-path", "hooks")
+		if err := os.WriteFile(filepath.Join(hooks, "post-commit"), []byte("#!/bin/sh\n"), 0o755); err != nil {
+			return err
+		}
+		if err := os.MkdirAll(filepath.Join(root, ".devin"), 0o755); err != nil {
+			return err
+		}
+		return os.WriteFile(filepath.Join(root, ".devin", "hooks.v1.json"), []byte("{}"), 0o644)
+	}
+	t.Cleanup(func() { runEntireEnable = orig })
+
+	for i := 0; i < 2; i++ {
+		if err := Bootstrap(repo, "me/ckpt", io.Discard); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := run("status", "--porcelain", "--untracked-files=all"); got != "" {
+		t.Fatalf("working tree changed:\n%s", got)
+	}
+	if got := run("config", "--get", "core.hooksPath"); !strings.HasSuffix(got, filepath.Join(".git", "entire-hooks")) {
+		t.Fatalf("core.hooksPath = %q", got)
+	}
+	if data, _ := os.ReadFile(filepath.Join(repo, ".git", "info", "exclude")); strings.Count(string(data), "/.devin/hooks.v1.json") != 1 {
+		t.Fatalf("exclude = %q", data)
+	}
+	if err := os.WriteFile(filepath.Join(repo, "f"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	run("add", "f")
+	run("commit", "-qm", "f")
+	if _, err := os.Stat(filepath.Join(repo, ".git", "ran")); err != nil {
+		t.Fatal("tracked pre-commit hook did not run through the wrapper")
+	}
+	if err := os.WriteFile(filepath.Join(repo, ".githooks", "commit-msg"), []byte("#!/bin/sh\nexit 1\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("git", "commit", "-q", "--allow-empty", "-m", "blocked")
+	cmd.Dir = repo
+	cmd.Env = append(os.Environ(), "GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@t", "GIT_COMMITTER_NAME=t", "GIT_COMMITTER_EMAIL=t@t")
+	if err := cmd.Run(); err == nil {
+		t.Fatal("hook added after bootstrap did not run")
+	}
+}
