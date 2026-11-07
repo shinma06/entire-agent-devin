@@ -38,10 +38,28 @@ const messageTool = "message_user"
 
 var chatWrapper = regexp.MustCompile(`(?s)^\s*<received_chat_message[^>]*>(.*)</received_chat_message>\s*$`)
 
+var (
+	quotedArtifact  = regexp.MustCompile(`(?s)<quoted_artifact[^>]*>(.*?)</quoted_artifact>`)
+	artifactCaption = regexp.MustCompile(`(?s)<caption>(.*?)</caption>`)
+	artifactContent = regexp.MustCompile(`(?s)<content>(.*?)</content>`)
+)
+
 func cleanPrompt(p string) string {
 	if m := chatWrapper.FindStringSubmatch(p); m != nil {
-		return strings.TrimSpace(m[1])
+		p = m[1]
 	}
+	// A quoted reply carries the user's words in <caption>; put them before the quote.
+	p = quotedArtifact.ReplaceAllStringFunc(p, func(block string) string {
+		inner := quotedArtifact.FindStringSubmatch(block)[1]
+		var parts []string
+		if c := artifactCaption.FindStringSubmatch(inner); c != nil && strings.TrimSpace(c[1]) != "" {
+			parts = append(parts, strings.TrimSpace(c[1]))
+		}
+		if c := artifactContent.FindStringSubmatch(inner); c != nil && strings.TrimSpace(c[1]) != "" {
+			parts = append(parts, "> "+strings.ReplaceAll(strings.TrimSpace(c[1]), "\n", "\n> "))
+		}
+		return strings.Join(parts, "\n") + "\n"
+	})
 	return strings.TrimSpace(p)
 }
 
