@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"html"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -53,10 +54,10 @@ func cleanPrompt(p string) string {
 		inner := quotedArtifact.FindStringSubmatch(block)[1]
 		var parts []string
 		if c := artifactCaption.FindStringSubmatch(inner); c != nil && strings.TrimSpace(c[1]) != "" {
-			parts = append(parts, strings.TrimSpace(c[1]))
+			parts = append(parts, html.UnescapeString(strings.TrimSpace(c[1])))
 		}
 		if c := artifactContent.FindStringSubmatch(inner); c != nil && strings.TrimSpace(c[1]) != "" {
-			parts = append(parts, "> "+strings.ReplaceAll(strings.TrimSpace(c[1]), "\n", "\n> "))
+			parts = append(parts, "> "+strings.ReplaceAll(html.UnescapeString(strings.TrimSpace(c[1])), "\n", "\n> "))
 		}
 		return strings.Join(parts, "\n") + "\n"
 	})

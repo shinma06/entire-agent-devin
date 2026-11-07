@@ -199,8 +199,8 @@ func TestModifiedFilesSkipsFailedTools(t *testing.T) {
 }
 
 func TestCleanPromptQuotedArtifact(t *testing.T) {
-	in := "<received_chat_message from=\"x\">\n<quoted_artifact kind=\"message\">\n<caption>Yes, merge it.</caption>\n<content>\nMay I merge?\nOr not?\n</content>\n</quoted_artifact>\n</received_chat_message>"
-	want := "Yes, merge it.\n> May I merge?\n> Or not?"
+	in := "<received_chat_message from=\"x\">\n<quoted_artifact kind=\"message\">\n<caption>Yes, merge it.</caption>\n<content>\nMay I merge &lt;x&gt;?\nOr not?\n</content>\n</quoted_artifact>\n</received_chat_message>"
+	want := "Yes, merge it.\n> May I merge <x>?\n> Or not?"
 	if got := cleanPrompt(in); got != want {
 		t.Fatalf("cleanPrompt = %q, want %q", got, want)
 	}
