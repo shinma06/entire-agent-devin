@@ -26,14 +26,30 @@ func TestBootstrap(t *testing.T) {
 	runEntireEnable = func(string, io.Writer) error { enabled++; return nil }
 	t.Cleanup(func() { runEntireEnable = orig })
 
-	for _, r := range []string{"me/old", "me/ckpt"} {
-		if err := Bootstrap(repo, r, io.Discard); err != nil {
+	sub := filepath.Join(repo, "sub")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := Bootstrap(repo, "me/old", io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := exec.Command("git", "-C", repo, "remote", "set-url", "--push", CheckpointRemote, "https://example.com/public.git").CombinedOutput(); err != nil {
+		t.Fatalf("set pushurl: %v: %s", err, out)
+	}
+	for _, r := range []string{"me/ckpt"} {
+		if err := Bootstrap(sub, r, io.Discard); err != nil {
 			t.Fatalf("Bootstrap(%s): %v", r, err)
 		}
 	}
 	out, err := exec.Command("git", "-C", repo, "config", "--get", "remote."+CheckpointRemote+".url").Output()
 	if err != nil || strings.TrimSpace(string(out)) != "https://github.com/me/ckpt.git" {
 		t.Fatalf("checkpoints remote = %q, %v", out, err)
+	}
+	if out, err := exec.Command("git", "-C", repo, "config", "--get", "remote."+CheckpointRemote+".pushurl").Output(); err == nil {
+		t.Fatalf("stale pushurl kept: %s", out)
+	}
+	if _, err := os.Stat(filepath.Join(sub, ".entire")); err == nil {
+		t.Fatal("bootstrap wrote settings into the subdirectory")
 	}
 	var s map[string]any
 	data, _ := os.ReadFile(filepath.Join(repo, ".entire", "settings.local.json"))

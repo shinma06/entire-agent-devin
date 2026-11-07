@@ -32,12 +32,18 @@ func Bootstrap(repoRoot, checkpointRepo string, out io.Writer) error {
 	if strings.Count(checkpointRepo, "/") != 1 || strings.HasPrefix(checkpointRepo, "/") || strings.HasSuffix(checkpointRepo, "/") {
 		return fmt.Errorf("checkpoint repo must be owner/repo, got %q", checkpointRepo)
 	}
-	url := "https://github.com/" + checkpointRepo + ".git"
+	top, err := exec.Command("git", "-C", repoRoot, "rev-parse", "--show-toplevel").Output()
+	if err != nil {
+		return fmt.Errorf("%s is not a git repository: %w", repoRoot, err)
+	}
+	repoRoot = strings.TrimSpace(string(top))
+	// Re-adding drops any pushurl, so checkpoints cannot keep going to an old destination.
 	if err := git(repoRoot, "remote", "get-url", CheckpointRemote); err == nil {
-		if err := git(repoRoot, "remote", "set-url", CheckpointRemote, url); err != nil {
+		if err := git(repoRoot, "remote", "remove", CheckpointRemote); err != nil {
 			return err
 		}
-	} else if err := git(repoRoot, "remote", "add", CheckpointRemote, url); err != nil {
+	}
+	if err := git(repoRoot, "remote", "add", CheckpointRemote, "https://github.com/"+checkpointRepo+".git"); err != nil {
 		return err
 	}
 	if err := allowExternalAgents(repoRoot); err != nil {
