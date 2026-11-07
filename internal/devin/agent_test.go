@@ -232,3 +232,29 @@ func TestFirstToolCallOpensTurn(t *testing.T) {
 		t.Fatalf("tool call after prompt = %+v, want nil", ev)
 	}
 }
+
+func TestToolCallKeepsTurnOpenedBeforeUpgrade(t *testing.T) {
+	repo := t.TempDir()
+	ref := SessionFile(SessionDir(repo), "devin-x")
+	if _, err := recordOnce(ref, legacyTurnKey("p1"), Record{V: 1, SessionID: "devin-x", Kind: KindUser}); err != nil {
+		t.Fatal(err)
+	}
+	body := `{"session_id":"devin-x","prompt_id":"p1","tool_name":"exec","tool_use_id":"t1","tool_input":{},"tool_response":"{}"}`
+	ev, err := ParseHook(HookPostToolUse, strings.NewReader(body), repo)
+	if err != nil || ev != nil {
+		t.Fatalf("tool call = %+v, %v; want nil", ev, err)
+	}
+}
+
+func TestTurnStartSurvivesDuplicateToolDelivery(t *testing.T) {
+	repo := t.TempDir()
+	ref := SessionFile(SessionDir(repo), "devin-x")
+	if _, err := recordOnce(ref, HookPostToolUse+"|p1|t1|", Record{V: 1, SessionID: "devin-x", Kind: KindTool}); err != nil {
+		t.Fatal(err)
+	}
+	body := `{"session_id":"devin-x","prompt_id":"p1","tool_name":"exec","tool_use_id":"t1","tool_input":{},"tool_response":"{}"}`
+	ev, err := ParseHook(HookPostToolUse, strings.NewReader(body), repo)
+	if err != nil || ev == nil || ev.Type != protocol.EventTurnStart {
+		t.Fatalf("tool call = %+v, %v; want TurnStart", ev, err)
+	}
+}
