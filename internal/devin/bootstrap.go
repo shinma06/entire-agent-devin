@@ -37,14 +37,17 @@ func Bootstrap(repoRoot, checkpointRepo string, out io.Writer) error {
 		return fmt.Errorf("%s is not a git repository: %w", repoRoot, err)
 	}
 	repoRoot = strings.TrimSpace(string(top))
-	// Re-adding drops any pushurl, so checkpoints cannot keep going to an old destination.
-	if err := git(repoRoot, "remote", "get-url", CheckpointRemote); err == nil {
-		if err := git(repoRoot, "remote", "remove", CheckpointRemote); err != nil {
+	url := "https://github.com/" + checkpointRepo + ".git"
+	if err := git(repoRoot, "remote", "get-url", CheckpointRemote); err != nil {
+		if err := git(repoRoot, "remote", "add", CheckpointRemote, url); err != nil {
 			return err
 		}
-	}
-	if err := git(repoRoot, "remote", "add", CheckpointRemote, "https://github.com/"+checkpointRepo+".git"); err != nil {
-		return err
+	} else {
+		if err := git(repoRoot, "remote", "set-url", CheckpointRemote, url); err != nil {
+			return err
+		}
+		// A leftover pushurl would keep sending checkpoints to the old destination.
+		_ = git(repoRoot, "config", "--unset-all", "remote."+CheckpointRemote+".pushurl")
 	}
 	if err := allowExternalAgents(repoRoot); err != nil {
 		return err
