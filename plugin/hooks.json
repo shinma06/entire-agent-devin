@@ -41,7 +41,7 @@
       "hooks": [
         {
           "type": "command",
-          "command": "PATH=\"$HOME/go/bin:$HOME/.local/bin:$PATH\"; command -v entire-agent-devin >/dev/null 2>&1 || exit 0; p=$(cat); entire-agent-devin dispatch-targets | while IFS= read -r d; do (cd \"$d\" && printf '%s' \"$p\" | entire hooks devin stop >/dev/null); done; exit 0",
+          "command": "PATH=\"$HOME/go/bin:$HOME/.local/bin:$PATH\"; command -v entire-agent-devin >/dev/null 2>&1 || exit 0; p=$(cat); entire-agent-devin dispatch-targets | while IFS= read -r d; do (cd \"$d\" && printf '%s' \"$p\" | entire hooks devin stop >/dev/null; git remote get-url checkpoints >/dev/null 2>&1 && printf '' | ENTIRE_PRE_PUSH_STDIN_REFS=1 entire hooks git pre-push checkpoints >/dev/null 2>&1); done; exit 0",
           "timeout": 60
         }
       ]
