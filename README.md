@@ -38,6 +38,20 @@ For sessions where project hooks are not loaded, install the Devin plugin in [`p
 It runs `entire hooks devin <hook>` in every repository listed by `entire-agent-devin dispatch-targets`
 (current dir, `$DEVIN_PROJECT_DIR`, and `$ENTIRE_DEVIN_REPOS` globs, default `~/repos/*`) that has Entire's Devin hooks installed.
 
+## Checkpoint storage
+
+Checkpoints contain the full Devin transcript, including tool output. For public repositories,
+store them in a private repository:
+
+```bash
+entire configure --project --checkpoint-remote github:<owner>/<private-repo>
+```
+
+Keep `origin` pointing at the GitHub URL (or the `entire://` mirror). Entire only uses the
+checkpoint remote when `origin` and the push remote belong to the checkpoint repository's owner;
+otherwise it pushes transcripts to the push remote itself. When pushing through an `entire://`
+mirror, mirror the checkpoint repository too (`entire repo mirror add /gh/<owner>/<private-repo>`).
+
 ## Development
 
 ```bash
