@@ -41,16 +41,18 @@ It runs `entire hooks devin <hook>` in every repository listed by `entire-agent-
 ## Checkpoint storage
 
 Checkpoints contain the full Devin transcript, including tool output. For public repositories,
-store them in a private repository:
+store them in a private repository. In a fresh clone (for example from a Devin blueprint):
 
 ```bash
-entire configure --project --checkpoint-remote github:<owner>/<private-repo>
+go install github.com/shinma06/entire-agent-devin/cmd/entire-agent-devin@latest
+entire-agent-devin bootstrap --checkpoint-repo <owner>/<private-repo>
 ```
 
-Keep `origin` pointing at the GitHub URL (or the `entire://` mirror). Entire only uses the
-checkpoint remote when `origin` and the push remote belong to the checkpoint repository's owner;
-otherwise it pushes transcripts to the push remote itself. When pushing through an `entire://`
-mirror, mirror the checkpoint repository too (`entire repo mirror add /gh/<owner>/<private-repo>`).
+`bootstrap` adds a `checkpoints` remote, sets `external_agents` in `.entire/settings.local.json`,
+and runs `entire enable --agent devin --checkpoint-push-remote checkpoints`. Pinning the remote is
+required in Devin clones: their `origin` is a git proxy URL whose owner Entire cannot match to the
+checkpoint repository, so without it Entire pushes transcripts to `origin`. The plugin's `Stop` hook
+uploads new checkpoints to the `checkpoints` remote, so no Entire login is needed.
 
 ## Development
 

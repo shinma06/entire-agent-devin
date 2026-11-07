@@ -216,6 +216,16 @@ func run(cmd string, args []string, in io.Reader, out io.Writer) error {
 			}
 		}
 		return nil
+	case "bootstrap":
+		f, err := flags("checkpoint-repo")
+		if err != nil {
+			return err
+		}
+		root, err := os.Getwd()
+		if err != nil {
+			return err
+		}
+		return devin.Bootstrap(root, f["checkpoint-repo"], os.Stderr)
 	case "version", "--version":
 		_, err := fmt.Fprintln(out, "entire-agent-devin dev")
 		return err
