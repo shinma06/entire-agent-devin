@@ -209,12 +209,12 @@ func run(cmd string, args []string, in io.Reader, out io.Writer) error {
 			return err
 		}
 		return protocol.WriteJSON(out, protocol.CompactTranscriptResponse{Transcript: base64.StdEncoding.EncodeToString(compact)})
-	case "dispatch":
-		f, err := flags("hook")
-		if err != nil {
-			return err
+	case "dispatch-targets":
+		for _, repo := range devin.DispatchTargets() {
+			if _, err := fmt.Fprintln(out, repo); err != nil {
+				return err
+			}
 		}
-		devin.Dispatch(f["hook"], in, os.Stderr)
 		return nil
 	case "version", "--version":
 		_, err := fmt.Fprintln(out, "entire-agent-devin dev")

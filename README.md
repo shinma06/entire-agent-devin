@@ -35,7 +35,7 @@ entire enable --agent devin
 `entire enable` writes `.devin/hooks.v1.json`, which runs `entire hooks devin <hook>`.
 
 For sessions where project hooks are not loaded, install the Devin plugin in [`plugin/`](plugin/) as a personal plugin.
-It runs `entire-agent-devin dispatch --hook <hook>`, which forwards the payload to every repository
+It runs `entire hooks devin <hook>` in every repository listed by `entire-agent-devin dispatch-targets`
 (current dir, `$DEVIN_PROJECT_DIR`, and `$ENTIRE_DEVIN_REPOS` globs, default `~/repos/*`) that has Entire's Devin hooks installed.
 
 ## Development

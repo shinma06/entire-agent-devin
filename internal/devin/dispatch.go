@@ -1,41 +1,17 @@
 package devin
 
 import (
-	"bytes"
-	"context"
-	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 )
 
-// Dispatch forwards a Devin plugin hook to `entire hooks devin <hook>` in every
-// candidate repository that has Entire's Devin hooks installed. It never fails
-// the Devin session: errors are reported on stderr only.
-func Dispatch(hook string, stdin io.Reader, stderr io.Writer) {
-	payload, err := io.ReadAll(stdin)
-	if err != nil {
-		fmt.Fprintf(stderr, "entire-agent-devin: read hook payload: %v\n", err)
-		return
-	}
-	for _, repo := range dispatchTargets() {
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-		cmd := exec.CommandContext(ctx, "entire", "hooks", AgentName, hook)
-		cmd.Dir = repo
-		cmd.Stdin = bytes.NewReader(payload)
-		cmd.Stdout = io.Discard
-		cmd.Stderr = stderr
-		if err := cmd.Run(); err != nil {
-			fmt.Fprintf(stderr, "entire-agent-devin: %s in %s: %v\n", hook, repo, err)
-		}
-		cancel()
-	}
-}
-
-func dispatchTargets() []string {
+// DispatchTargets lists the repositories a Devin plugin hook should be forwarded to:
+// candidates that have Entire's Devin hooks installed. The plugin's shell command
+// runs `entire hooks devin` itself so Entire resolves the long-lived Devin process,
+// not this short-lived binary, as the session owner.
+func DispatchTargets() []string {
 	var candidates []string
 	if wd, err := os.Getwd(); err == nil {
 		candidates = append(candidates, wd)
