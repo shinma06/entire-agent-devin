@@ -1,0 +1,10 @@
+<quoted_artifact kind="message" event_id="agent_message:event-01a1b60298a672b3a52d7adf344f5b4a" author="devin">
+<caption>マージしていいよ。そこらへんもentireをねいてぃぶにつかえれば解決できるはず？人間に依存しない開発。</caption>
+<content>
+マージ。 entire-agent-devin は、CIとDevin Reviewが通ったら私がマージしてよいか。それとも、マージだけはShinmaさんが押すか。
+</content>
+</quoted_artifact>
+
+---
+
+やったよ

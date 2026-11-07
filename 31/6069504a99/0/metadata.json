@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.13.1",
+  "checkpoint_id": "316069504a99",
+  "session_id": "devin-3c4fc3d1af2549b9b149bde4f6ce3626",
+  "strategy": "manual-commit",
+  "created_at": "2026-11-07T12:41:03.687357983Z",
+  "branch": "devin/1794054635-entire-agent-devin",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "README.md"
+  ],
+  "agent": "Devin",
+  "model": "",
+  "turn_id": "cf0cafe039a9",
+  "compact_transcript_start": 0,
+  "redaction": {
+    "replacements": 0,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 0,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  }
+}
