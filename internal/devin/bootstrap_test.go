@@ -126,4 +126,13 @@ func TestBootstrapKeepsTrackedHooks(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(repo, ".git", "ran")); err != nil {
 		t.Fatal("tracked pre-commit hook did not run through the wrapper")
 	}
+	if err := os.WriteFile(filepath.Join(repo, ".githooks", "commit-msg"), []byte("#!/bin/sh\nexit 1\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("git", "commit", "-q", "--allow-empty", "-m", "blocked")
+	cmd.Dir = repo
+	cmd.Env = append(os.Environ(), "GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@t", "GIT_COMMITTER_NAME=t", "GIT_COMMITTER_EMAIL=t@t")
+	if err := cmd.Run(); err == nil {
+		t.Fatal("hook added after bootstrap did not run")
+	}
 }

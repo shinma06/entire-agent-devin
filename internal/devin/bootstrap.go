@@ -87,7 +87,7 @@ func privatizeTrackedHooks(repoRoot string) error {
 	if tracked, err := gitOut(repoRoot, "ls-files", "--", rel); err != nil || tracked == "" {
 		return err
 	}
-	gitDir, err := gitOut(repoRoot, "rev-parse", "--path-format=absolute", "--git-dir")
+	gitDir, err := gitOut(repoRoot, "rev-parse", "--path-format=absolute", "--git-common-dir")
 	if err != nil {
 		return err
 	}
@@ -95,25 +95,25 @@ func privatizeTrackedHooks(repoRoot string) error {
 	if err := os.MkdirAll(private, 0o755); err != nil {
 		return err
 	}
-	entries, err := os.ReadDir(hooks)
-	if err != nil {
-		return err
-	}
-	for _, e := range entries {
-		info, err := e.Info()
-		if err != nil || !info.Mode().IsRegular() || info.Mode()&0o111 == 0 || strings.Contains(e.Name(), ".") {
-			continue
-		}
-		dst := filepath.Join(private, e.Name())
+	// Wrap every client hook name, not just the ones present now, so hooks committed or removed
+	// later take effect without re-running bootstrap.
+	for _, name := range clientHooks {
+		dst := filepath.Join(private, name)
 		if exists(dst) || exists(dst+".pre-entire") {
 			continue
 		}
-		wrapper := fmt.Sprintf("#!/bin/sh\nexec \"$(git rev-parse --show-toplevel)/%s\" \"$@\"\n", filepath.ToSlash(filepath.Join(rel, e.Name())))
+		wrapper := fmt.Sprintf("#!/bin/sh\nh=\"$(git rev-parse --show-toplevel)/%s\"\n[ -x \"$h\" ] || exit 0\nexec \"$h\" \"$@\"\n", filepath.ToSlash(filepath.Join(rel, name)))
 		if err := os.WriteFile(dst, []byte(wrapper), 0o755); err != nil {
 			return err
 		}
 	}
 	return git(repoRoot, "config", "--local", "core.hooksPath", private)
+}
+
+var clientHooks = []string{
+	"applypatch-msg", "pre-applypatch", "post-applypatch", "pre-commit", "pre-merge-commit",
+	"prepare-commit-msg", "commit-msg", "post-commit", "pre-rebase", "post-checkout", "post-merge",
+	"pre-push", "post-rewrite", "pre-auto-gc", "push-to-checkout", "sendemail-validate",
 }
 
 func exists(path string) bool {
