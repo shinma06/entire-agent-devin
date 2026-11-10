@@ -174,6 +174,8 @@ func git(dir string, args ...string) error {
 }
 
 // allowExternalAgents sets external_agents in .entire/settings.local.json, keeping other keys.
+// It also selects the per-checkpoint git-refs backend: with the shared entire/checkpoints/v1
+// branch, clones on different Devin VMs diverge and only one of them can push its checkpoints.
 func allowExternalAgents(repoRoot string) error {
 	path := filepath.Join(repoRoot, ".entire", "settings.local.json")
 	settings := map[string]any{}
@@ -187,6 +189,17 @@ func allowExternalAgents(repoRoot string) error {
 		return err
 	}
 	settings["external_agents"] = true
+	checkpoints, _ := settings["checkpoints"].(map[string]any)
+	if checkpoints == nil {
+		checkpoints = map[string]any{}
+	}
+	primary, _ := checkpoints["primary"].(map[string]any)
+	if primary == nil {
+		primary = map[string]any{}
+	}
+	primary["type"] = "git-refs"
+	checkpoints["primary"] = primary
+	settings["checkpoints"] = checkpoints
 	data, err = json.MarshalIndent(settings, "", "  ")
 	if err != nil {
 		return err

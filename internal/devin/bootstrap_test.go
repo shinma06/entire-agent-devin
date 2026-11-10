@@ -59,6 +59,9 @@ func TestBootstrap(t *testing.T) {
 	if err := json.Unmarshal(data, &s); err != nil || s["external_agents"] != true || s["telemetry"] != false {
 		t.Fatalf("settings = %s, %v", data, err)
 	}
+	if primary, _ := s["checkpoints"].(map[string]any)["primary"].(map[string]any); primary["type"] != "git-refs" {
+		t.Fatalf("checkpoint backend = %s", data)
+	}
 	if enabled != 2 {
 		t.Fatalf("entire enable ran %d times, want 2", enabled)
 	}
