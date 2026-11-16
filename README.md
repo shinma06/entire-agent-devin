@@ -33,6 +33,38 @@ entire enable --agent devin
 ```
 
 `entire enable` writes `.devin/hooks.v1.json`, which runs `entire hooks devin <hook>`.
+Devin runs hooks with a minimal PATH (no shell profile), so the hook command also searches
+`~/.local/bin`, `~/go/bin`, `~/bin`, `/opt/homebrew/bin` and `/usr/local/bin`, and always exits 0.
+If `entire` or `entire-agent-devin` is still missing, the payload is queued in
+`.entire/tmp/devin-pending/` (git-ignored, owner-only) and replayed by the next hook that finds both;
+replays Entire rejects are kept in `.entire/tmp/devin-pending/failed/`.
+Re-run `entire enable --agent devin` (or `bootstrap`) to upgrade hooks written by older versions.
+
+### Devin VMs (Linux, macOS, Windows)
+
+Devin hooks run under bash on every platform (Git Bash on Windows), so the same hook command is used everywhere;
+only installation differs. Run once per VM, in the repository:
+
+```bash
+scripts/devin-setup.sh --checkpoint-repo owner/entire-checkpoints        # Linux, macOS
+```
+
+```powershell
+scripts\devin-setup.ps1 --checkpoint-repo owner/entire-checkpoints       # Windows (PowerShell)
+```
+
+They install `entire` (official installer, `~/.local/bin`), Go if missing (`~/go-sdk`) and
+`entire-agent-devin` (`~/go/bin`), then run `bootstrap`. Environment blueprints only run on the platform
+they were built for, so macOS and Windows sessions need this step (or a blueprint for that platform).
+
+Starting sessions:
+
+- Specify the repository the work is for, so the session is recorded there (`DEVIN_PROJECT_DIR`) and that
+  repository's blueprint runs. Sessions without one still run the project hooks of repositories already on the VM,
+  and are recorded in those that have Entire enabled.
+- Repositories need `external_agents` enabled (done by `bootstrap`); otherwise Entire answers `unknown agent "devin"`.
+- Hooks load at session start, so after setup the records start with the current session's next hook,
+  plus anything queued before.
 
 For sessions where project hooks are not loaded, install the Devin plugin in [`plugin/`](plugin/) as a personal plugin.
 It runs `entire hooks devin <hook>` in every repository listed by `entire-agent-devin dispatch-targets`

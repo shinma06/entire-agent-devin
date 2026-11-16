@@ -37,7 +37,7 @@ func DispatchTargets() []string {
 			continue
 		}
 		seen[root] = true
-		if ok, _ := AreHooksInstalled(root); ok {
+		if hasEntireHooks(root) {
 			out = append(out, root)
 		}
 	}

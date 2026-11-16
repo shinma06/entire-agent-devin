@@ -1,11 +1,13 @@
 package devin
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -30,6 +32,59 @@ var devinHookEvents = []struct{ Event, Hook string }{
 	{"SessionEnd", HookSessionEnd},
 }
 
+// Install locations of entire and entire-agent-devin (install.sh/install.ps1,
+// go install, Homebrew). Devin runs hooks and setup with a PATH that skips the
+// user's shell profile, so these are searched explicitly.
+var (
+	toolHomeDirs = []string{".local/bin", "go/bin", "bin"}
+	toolAbsDirs  = []string{"/opt/homebrew/bin", "/usr/local/bin"}
+)
+
+func hookSearchPath() string {
+	dirs := make([]string, 0, len(toolHomeDirs)+len(toolAbsDirs))
+	for _, d := range toolHomeDirs {
+		dirs = append(dirs, "$HOME/"+d)
+	}
+	return strings.Join(append(dirs, toolAbsDirs...), ":")
+}
+
+// AddToolDirsToPath appends the install locations to this process's PATH, so
+// commands it starts (entire, and entire-agent-devin started by entire) resolve
+// the same way the hook command does.
+func AddToolDirsToPath() {
+	dirs := filepath.SplitList(os.Getenv("PATH"))
+	if self, err := os.Executable(); err == nil {
+		dirs = append(dirs, filepath.Dir(self))
+	}
+	if home, err := os.UserHomeDir(); err == nil {
+		for _, d := range toolHomeDirs {
+			dirs = append(dirs, filepath.Join(home, filepath.FromSlash(d)))
+		}
+	}
+	if runtime.GOOS != "windows" {
+		dirs = append(dirs, toolAbsDirs...)
+	}
+	_ = os.Setenv("PATH", strings.Join(dirs, string(os.PathListSeparator)))
+}
+
+// hookCommand returns the POSIX shell command installed for hook. It never fails
+// the hook: when entire or entire-agent-devin cannot be found the payload is
+// queued under .entire/tmp/devin-pending (git-ignored, owner-only) and replayed,
+// oldest first, by the next hook that can reach both; a replay entire rejects
+// is kept in devin-pending/failed for inspection.
+func hookCommand(hook string) string {
+	return `PATH="$PATH:` + hookSearchPath() + `"; umask 077; ` +
+		`q="$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.entire/tmp/devin-pending"; ` +
+		`if command -v entire >/dev/null 2>&1 && command -v entire-agent-devin >/dev/null 2>&1; then ` +
+		`for f in "$q"/*; do [ -f "$f" ] || continue; if entire hooks devin "${f##*.}" <"$f" >/dev/null 2>&1; then rm -f "$f"; else mkdir -p "$q/failed" && mv -f "$f" "$q/failed/"; fi; done; ` +
+		entireHookPrefix + hook + `; ` +
+		`else mkdir -p "$q" && cat >"$q/$(date +%s)-$(printf %06d "$(ls "$q" | wc -l)")-$$.` + hook + `"; fi; exit 0`
+}
+
+func isEntireHookCommand(cmd string) bool {
+	return strings.Contains(cmd, entireHookPrefix)
+}
+
 func hookNames() []string {
 	out := make([]string, 0, len(devinHookEvents))
 	for _, e := range devinHookEvents {
@@ -38,7 +93,7 @@ func hookNames() []string {
 	return out
 }
 
-type hookCommand struct {
+type hookEntry struct {
 	Type    string `json:"type"`
 	Command string `json:"command"`
 	Timeout int    `json:"timeout,omitempty"`
@@ -75,17 +130,34 @@ func writeHooksConfig(path string, cfg map[string]json.RawMessage) error {
 		}
 		return err
 	}
-	data, err := json.MarshalIndent(cfg, "", "  ")
+	compact, err := marshalJSON(cfg)
 	if err != nil {
+		return err
+	}
+	var data bytes.Buffer
+	if err := json.Indent(&data, compact, "", "  "); err != nil {
 		return err
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	return os.WriteFile(path, append(data, '\n'), 0o644)
+	data.WriteByte('\n')
+	return os.WriteFile(path, data.Bytes(), 0o644)
 }
 
 type group = map[string]json.RawMessage
+
+// marshalJSON is json.Marshal without HTML escaping, so shell redirections in
+// hook commands stay readable in the hooks file.
+func marshalJSON(v any) ([]byte, error) {
+	var b bytes.Buffer
+	enc := json.NewEncoder(&b)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(v); err != nil {
+		return nil, err
+	}
+	return bytes.TrimRight(b.Bytes(), "\n"), nil
+}
 
 // stripEntireHooks removes Entire commands from one event's matcher groups,
 // keeping every other group, hook and field as written.
@@ -107,7 +179,7 @@ func stripEntireHooks(event string, raw json.RawMessage) ([]group, bool, error) 
 		}
 		rest := hooks[:0]
 		for _, h := range hooks {
-			if strings.HasPrefix(hookCommandOf(h), entireHookPrefix) {
+			if isEntireHookCommand(hookCommandOf(h)) {
 				removed = true
 				continue
 			}
@@ -120,7 +192,7 @@ func stripEntireHooks(event string, raw json.RawMessage) ([]group, bool, error) 
 		if len(rest) == 0 {
 			continue
 		}
-		data, err := json.Marshal(rest)
+		data, err := marshalJSON(rest)
 		if err != nil {
 			return nil, false, err
 		}
@@ -167,9 +239,9 @@ func InstallHooks(repoRoot string, force bool) (int, error) {
 		if err != nil {
 			return 0, err
 		}
-		entire, err := json.Marshal(map[string]any{
+		entire, err := marshalJSON(map[string]any{
 			"matcher": "",
-			"hooks":   []hookCommand{{Type: "command", Command: entireHookPrefix + e.Hook, Timeout: 60}},
+			"hooks":   []hookEntry{{Type: "command", Command: hookCommand(e.Hook), Timeout: 60}},
 		})
 		if err != nil {
 			return 0, err
@@ -178,7 +250,7 @@ func InstallHooks(repoRoot string, force bool) (int, error) {
 		if err := json.Unmarshal(entire, &g); err != nil {
 			return 0, err
 		}
-		data, err := json.Marshal(append(groups, g))
+		data, err := marshalJSON(append(groups, g))
 		if err != nil {
 			return 0, err
 		}
@@ -202,7 +274,7 @@ func UninstallHooks(repoRoot string) error {
 			delete(cfg, event)
 			continue
 		}
-		data, err := json.Marshal(groups)
+		data, err := marshalJSON(groups)
 		if err != nil {
 			return err
 		}
@@ -222,9 +294,35 @@ func AreHooksInstalled(repoRoot string) (bool, error) {
 // hooksInstalled reports whether every Entire hook is present.
 func hooksInstalled(cfg map[string]json.RawMessage) bool {
 	for _, e := range devinHookEvents {
-		if !hasHookCommand(cfg[e.Event], entireHookPrefix+e.Hook) {
+		if !hasHookCommand(cfg[e.Event], hookCommand(e.Hook)) {
 			return false
 		}
 	}
 	return true
+}
+
+// hasEntireHooks reports whether repoRoot has any Entire hook, including ones
+// written by earlier versions, so plugin dispatch keeps reaching repositories
+// whose committed hooks have not been upgraded yet.
+func hasEntireHooks(repoRoot string) bool {
+	cfg, err := readHooksConfig(HooksFile(repoRoot))
+	if err != nil {
+		return false
+	}
+	for _, raw := range cfg {
+		var groups []group
+		if json.Unmarshal(raw, &groups) != nil {
+			continue
+		}
+		for _, g := range groups {
+			var hooks []group
+			_ = json.Unmarshal(g["hooks"], &hooks)
+			for _, h := range hooks {
+				if isEntireHookCommand(hookCommandOf(h)) {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
