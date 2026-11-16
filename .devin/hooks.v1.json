@@ -4,16 +4,6 @@
       "hooks": [
         {
           "type": "command",
-          "command": "PATH=\"$PATH:$HOME/.local/bin:$HOME/go/bin:$HOME/bin:/opt/homebrew/bin:/usr/local/bin\"; umask 077; q=\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.entire/tmp/devin-pending\"; if command -v entire >/dev/null 2>&1 && command -v entire-agent-devin >/dev/null 2>&1; then for f in \"$q\"/*; do [ -f \"$f\" ] || continue; if entire hooks devin \"${f##*.}\" <\"$f\" >/dev/null 2>&1; then rm -f \"$f\"; else mkdir -p \"$q/failed\" && mv -f \"$f\" \"$q/failed/\"; fi; done; entire hooks devin post-compaction; else mkdir -p \"$q\" && cat >\"$q/$(date +%s)-$(printf %06d \"$(ls \"$q\" | wc -l)\")-$$.post-compaction\"; fi; exit 0",
-          "timeout": 60
-        }
-      ],
-      "matcher": ""
-    },
-    {
-      "hooks": [
-        {
-          "type": "command",
           "command": "PATH=\"$PATH:$HOME/.local/bin:$HOME/go/bin:$HOME/bin:/opt/homebrew/bin:/usr/local/bin\"; umask 077; q=\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.entire/tmp/devin-pending\"; if command -v entire >/dev/null 2>&1 && command -v entire-agent-devin >/dev/null 2>&1; then for f in \"$q\"/*; do [ -f \"$f\" ] || continue; if entire hooks devin \"${f##*.}\" <\"$f\" >/dev/null 2>&1; then rm -f \"$f\"; else mkdir -p \"$q/failed\" && mv -f \"$f\" \"$q/failed/\"; fi; done; entire hooks devin post-compaction; else mkdir -p \"$q\" && cat >\"$q/.$$\" && mv -f \"$q/.$$\" \"$q/$(date +%s)-$(printf %06d \"$(ls \"$q\" | wc -l)\")-$$.post-compaction\"; fi; exit 0",
           "timeout": 60
         }
@@ -22,16 +12,6 @@
     }
   ],
   "PostToolUse": [
-    {
-      "hooks": [
-        {
-          "type": "command",
-          "command": "PATH=\"$PATH:$HOME/.local/bin:$HOME/go/bin:$HOME/bin:/opt/homebrew/bin:/usr/local/bin\"; umask 077; q=\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.entire/tmp/devin-pending\"; if command -v entire >/dev/null 2>&1 && command -v entire-agent-devin >/dev/null 2>&1; then for f in \"$q\"/*; do [ -f \"$f\" ] || continue; if entire hooks devin \"${f##*.}\" <\"$f\" >/dev/null 2>&1; then rm -f \"$f\"; else mkdir -p \"$q/failed\" && mv -f \"$f\" \"$q/failed/\"; fi; done; entire hooks devin post-tool-use; else mkdir -p \"$q\" && cat >\"$q/$(date +%s)-$(printf %06d \"$(ls \"$q\" | wc -l)\")-$$.post-tool-use\"; fi; exit 0",
-          "timeout": 60
-        }
-      ],
-      "matcher": ""
-    },
     {
       "hooks": [
         {
@@ -48,16 +28,6 @@
       "hooks": [
         {
           "type": "command",
-          "command": "PATH=\"$PATH:$HOME/.local/bin:$HOME/go/bin:$HOME/bin:/opt/homebrew/bin:/usr/local/bin\"; umask 077; q=\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.entire/tmp/devin-pending\"; if command -v entire >/dev/null 2>&1 && command -v entire-agent-devin >/dev/null 2>&1; then for f in \"$q\"/*; do [ -f \"$f\" ] || continue; if entire hooks devin \"${f##*.}\" <\"$f\" >/dev/null 2>&1; then rm -f \"$f\"; else mkdir -p \"$q/failed\" && mv -f \"$f\" \"$q/failed/\"; fi; done; entire hooks devin session-end; else mkdir -p \"$q\" && cat >\"$q/$(date +%s)-$(printf %06d \"$(ls \"$q\" | wc -l)\")-$$.session-end\"; fi; exit 0",
-          "timeout": 60
-        }
-      ],
-      "matcher": ""
-    },
-    {
-      "hooks": [
-        {
-          "type": "command",
           "command": "PATH=\"$PATH:$HOME/.local/bin:$HOME/go/bin:$HOME/bin:/opt/homebrew/bin:/usr/local/bin\"; umask 077; q=\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.entire/tmp/devin-pending\"; if command -v entire >/dev/null 2>&1 && command -v entire-agent-devin >/dev/null 2>&1; then for f in \"$q\"/*; do [ -f \"$f\" ] || continue; if entire hooks devin \"${f##*.}\" <\"$f\" >/dev/null 2>&1; then rm -f \"$f\"; else mkdir -p \"$q/failed\" && mv -f \"$f\" \"$q/failed/\"; fi; done; entire hooks devin session-end; else mkdir -p \"$q\" && cat >\"$q/.$$\" && mv -f \"$q/.$$\" \"$q/$(date +%s)-$(printf %06d \"$(ls \"$q\" | wc -l)\")-$$.session-end\"; fi; exit 0",
           "timeout": 60
         }
@@ -66,16 +36,6 @@
     }
   ],
   "SessionStart": [
-    {
-      "hooks": [
-        {
-          "type": "command",
-          "command": "PATH=\"$PATH:$HOME/.local/bin:$HOME/go/bin:$HOME/bin:/opt/homebrew/bin:/usr/local/bin\"; umask 077; q=\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.entire/tmp/devin-pending\"; if command -v entire >/dev/null 2>&1 && command -v entire-agent-devin >/dev/null 2>&1; then for f in \"$q\"/*; do [ -f \"$f\" ] || continue; if entire hooks devin \"${f##*.}\" <\"$f\" >/dev/null 2>&1; then rm -f \"$f\"; else mkdir -p \"$q/failed\" && mv -f \"$f\" \"$q/failed/\"; fi; done; entire hooks devin session-start; else mkdir -p \"$q\" && cat >\"$q/$(date +%s)-$(printf %06d \"$(ls \"$q\" | wc -l)\")-$$.session-start\"; fi; exit 0",
-          "timeout": 60
-        }
-      ],
-      "matcher": ""
-    },
     {
       "hooks": [
         {
@@ -92,16 +52,6 @@
       "hooks": [
         {
           "type": "command",
-          "command": "PATH=\"$PATH:$HOME/.local/bin:$HOME/go/bin:$HOME/bin:/opt/homebrew/bin:/usr/local/bin\"; umask 077; q=\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.entire/tmp/devin-pending\"; if command -v entire >/dev/null 2>&1 && command -v entire-agent-devin >/dev/null 2>&1; then for f in \"$q\"/*; do [ -f \"$f\" ] || continue; if entire hooks devin \"${f##*.}\" <\"$f\" >/dev/null 2>&1; then rm -f \"$f\"; else mkdir -p \"$q/failed\" && mv -f \"$f\" \"$q/failed/\"; fi; done; entire hooks devin stop; else mkdir -p \"$q\" && cat >\"$q/$(date +%s)-$(printf %06d \"$(ls \"$q\" | wc -l)\")-$$.stop\"; fi; exit 0",
-          "timeout": 60
-        }
-      ],
-      "matcher": ""
-    },
-    {
-      "hooks": [
-        {
-          "type": "command",
           "command": "PATH=\"$PATH:$HOME/.local/bin:$HOME/go/bin:$HOME/bin:/opt/homebrew/bin:/usr/local/bin\"; umask 077; q=\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.entire/tmp/devin-pending\"; if command -v entire >/dev/null 2>&1 && command -v entire-agent-devin >/dev/null 2>&1; then for f in \"$q\"/*; do [ -f \"$f\" ] || continue; if entire hooks devin \"${f##*.}\" <\"$f\" >/dev/null 2>&1; then rm -f \"$f\"; else mkdir -p \"$q/failed\" && mv -f \"$f\" \"$q/failed/\"; fi; done; entire hooks devin stop; else mkdir -p \"$q\" && cat >\"$q/.$$\" && mv -f \"$q/.$$\" \"$q/$(date +%s)-$(printf %06d \"$(ls \"$q\" | wc -l)\")-$$.stop\"; fi; exit 0",
           "timeout": 60
         }
@@ -110,16 +60,6 @@
     }
   ],
   "UserPromptSubmit": [
-    {
-      "hooks": [
-        {
-          "type": "command",
-          "command": "PATH=\"$PATH:$HOME/.local/bin:$HOME/go/bin:$HOME/bin:/opt/homebrew/bin:/usr/local/bin\"; umask 077; q=\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.entire/tmp/devin-pending\"; if command -v entire >/dev/null 2>&1 && command -v entire-agent-devin >/dev/null 2>&1; then for f in \"$q\"/*; do [ -f \"$f\" ] || continue; if entire hooks devin \"${f##*.}\" <\"$f\" >/dev/null 2>&1; then rm -f \"$f\"; else mkdir -p \"$q/failed\" && mv -f \"$f\" \"$q/failed/\"; fi; done; entire hooks devin user-prompt-submit; else mkdir -p \"$q\" && cat >\"$q/$(date +%s)-$(printf %06d \"$(ls \"$q\" | wc -l)\")-$$.user-prompt-submit\"; fi; exit 0",
-          "timeout": 60
-        }
-      ],
-      "matcher": ""
-    },
     {
       "hooks": [
         {

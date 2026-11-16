@@ -81,11 +81,14 @@ func hookCommand(hook string) string {
 		`else mkdir -p "$q" && cat >"$q/.$$" && mv -f "$q/.$$" "$q/$(date +%s)-$(printf %06d "$(ls "$q" | wc -l)")-$$.` + hook + `"; fi; exit 0`
 }
 
-// isEntireHookCommand matches only commands install-hooks writes, current or
-// legacy, so user hooks that merely mention entire are left alone.
+// isEntireHookCommand matches only commands install-hooks writes (the bare
+// legacy form, or any version of the queueing wrapper), so user hooks that
+// merely mention entire are left alone.
 func isEntireHookCommand(cmd string) bool {
+	wrapper := `PATH="$PATH:` + hookSearchPath() + `"; umask 077; q=`
 	for _, e := range devinHookEvents {
-		if cmd == entireHookPrefix+e.Hook || cmd == hookCommand(e.Hook) {
+		if cmd == entireHookPrefix+e.Hook ||
+			(strings.HasPrefix(cmd, wrapper) && strings.HasSuffix(cmd, "."+e.Hook+`"; fi; exit 0`)) {
 			return true
 		}
 	}

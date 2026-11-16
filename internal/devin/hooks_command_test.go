@@ -86,6 +86,25 @@ func TestHooksFileKeepsShellReadable(t *testing.T) {
 	}
 }
 
+func TestInstallHooksReplacesOlderWrapper(t *testing.T) {
+	repo := t.TempDir()
+	older := `PATH="$PATH:` + hookSearchPath() + `"; umask 077; q=x; if true; then entire hooks devin stop; else cat >"$q/1.stop"; fi; exit 0`
+	cfg := `{"Stop":[{"matcher":"","hooks":[{"type":"command","command":` + jsonString(t, older) + `,"timeout":60}]}]}`
+	if err := os.MkdirAll(filepath.Dir(HooksFile(repo)), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(HooksFile(repo), []byte(cfg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := InstallHooks(repo, false); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(HooksFile(repo))
+	if strings.Count(string(data), "q=x;") != 0 || strings.Count(string(data), entireHookPrefix+HookStop+";") != 1 {
+		t.Fatalf("older wrapper not replaced:\n%s", data)
+	}
+}
+
 func TestInstallHooksUpgradesLegacyCommands(t *testing.T) {
 	repo := t.TempDir()
 	legacy := `{"Stop":[{"matcher":"","hooks":[{"type":"command","command":"entire hooks devin stop","timeout":60},{"type":"command","command":"echo entire hooks devin stop >>log"}]}]}`
