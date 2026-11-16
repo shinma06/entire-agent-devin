@@ -39,10 +39,12 @@ func TestBootstrap(t *testing.T) {
 	if out, err := exec.Command("git", "-C", repo, "remote", "set-url", "--add", CheckpointRemote, "https://example.com/extra.git").CombinedOutput(); err != nil {
 		t.Fatalf("add url: %v: %s", err, out)
 	}
-	for _, r := range []string{"me/ckpt"} {
-		if err := Bootstrap(sub, r, io.Discard); err != nil {
-			t.Fatalf("Bootstrap(%s): %v", r, err)
-		}
+	committed := `{"strategy_options":{"checkpoint_remote":{"provider":"github","repo":"me/ckpt"}}}`
+	if err := os.WriteFile(filepath.Join(repo, ".entire", "settings.json"), []byte(committed), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Bootstrap(sub, "", io.Discard); err != nil {
+		t.Fatalf("Bootstrap from committed settings: %v", err)
 	}
 	out, err := exec.Command("git", "-C", repo, "config", "--get-all", "remote."+CheckpointRemote+".url").Output()
 	if err != nil || strings.TrimSpace(string(out)) != "https://github.com/me/ckpt.git" {
@@ -64,6 +66,9 @@ func TestBootstrap(t *testing.T) {
 	}
 	if enabled != 2 {
 		t.Fatalf("entire enable ran %d times, want 2", enabled)
+	}
+	if err := Bootstrap(t.TempDir(), "", io.Discard); err == nil {
+		t.Fatal("Bootstrap ran without a checkpoint repo")
 	}
 	if err := Bootstrap(repo, "bad", io.Discard); err == nil {
 		t.Fatal("Bootstrap accepted a repo without owner")

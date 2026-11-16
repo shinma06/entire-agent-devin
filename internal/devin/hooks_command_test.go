@@ -63,7 +63,7 @@ func TestHookCommandQueuesWithoutEntireThenReplays(t *testing.T) {
 
 	runHookCommand(t, repo, home, HookStop, `{"stop":true}`)
 	log, _ := os.ReadFile(filepath.Join(home, "log"))
-	want := "hooks devin user-prompt-submit|{\"prompt\":\"one\"}\nhooks devin post-tool-use|{\"tool\":\"exec\"}\nhooks devin stop|{\"stop\":true}\n"
+	want := "bootstrap|\nhooks devin user-prompt-submit|{\"prompt\":\"one\"}\nhooks devin post-tool-use|{\"tool\":\"exec\"}\nhooks devin stop|{\"stop\":true}\n"
 	if string(log) != want {
 		t.Fatalf("entire calls:\n%s\nwant:\n%s", log, want)
 	}
@@ -72,6 +72,9 @@ func TestHookCommandQueuesWithoutEntireThenReplays(t *testing.T) {
 	}
 	if failed, _ := filepath.Glob(filepath.Join(queue, "failed", "*."+HookPostToolUse)); len(failed) != 1 {
 		t.Fatalf("rejected replay not kept: %v", failed)
+	}
+	if failed, _ := filepath.Glob(filepath.Join(queue, "failed", "*."+HookStop)); len(failed) != 1 {
+		t.Fatalf("rejected live payload not kept: %v", failed)
 	}
 }
 
@@ -100,7 +103,7 @@ func TestInstallHooksReplacesOlderWrapper(t *testing.T) {
 		t.Fatal(err)
 	}
 	data, _ := os.ReadFile(HooksFile(repo))
-	if strings.Count(string(data), "q=x;") != 0 || strings.Count(string(data), entireHookPrefix+HookStop+";") != 1 {
+	if strings.Count(string(data), "q=x;") != 0 || strings.Count(string(data), entireHookPrefix+HookStop+" <") != 1 {
 		t.Fatalf("older wrapper not replaced:\n%s", data)
 	}
 }
@@ -122,7 +125,7 @@ func TestInstallHooksUpgradesLegacyCommands(t *testing.T) {
 		t.Fatalf("upgrade: %d %v", n, err)
 	}
 	data, _ := os.ReadFile(HooksFile(repo))
-	if strings.Count(string(data), entireHookPrefix+HookStop+";") != 1 || strings.Contains(string(data), `"entire hooks devin stop"`) {
+	if strings.Count(string(data), entireHookPrefix+HookStop+" <") != 1 || strings.Contains(string(data), `"entire hooks devin stop"`) {
 		t.Fatalf("legacy hook not replaced:\n%s", data)
 	}
 	if err := UninstallHooks(repo); err != nil {
@@ -130,5 +133,25 @@ func TestInstallHooksUpgradesLegacyCommands(t *testing.T) {
 	}
 	if data, _ := os.ReadFile(HooksFile(repo)); !strings.Contains(string(data), "echo entire hooks devin stop >>log") {
 		t.Fatalf("user hook mentioning entire was removed:\n%s", data)
+	}
+}
+
+func TestHookCommandUsesDevinProjectDir(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("sh not available")
+	}
+	repo, home := t.TempDir(), t.TempDir()
+	if out, err := exec.Command(gitPath(t), "init", "-q", repo).CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v %s", err, out)
+	}
+	cmd := exec.Command("sh", "-c", hookCommand(HookSessionStart))
+	cmd.Dir = home
+	cmd.Env = []string{"PATH=" + filepath.Dir(gitPath(t)) + ":/usr/bin:/bin", "HOME=" + home, "DEVIN_PROJECT_DIR=" + repo}
+	cmd.Stdin = strings.NewReader(`{"source":"startup"}`)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("hook command must exit 0: %v\n%s", err, out)
+	}
+	if files, _ := filepath.Glob(filepath.Join(repo, ".entire", "tmp", "devin-pending", "*."+HookSessionStart)); len(files) != 1 {
+		t.Fatalf("payload not queued in DEVIN_PROJECT_DIR: %v", files)
 	}
 }

@@ -5,6 +5,5 @@
       "provider": "github",
       "repo": "shinma06/entire-checkpoints"
     }
-  },
-  "external_agents": true
+  }
 }

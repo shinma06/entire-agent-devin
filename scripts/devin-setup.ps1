@@ -21,12 +21,17 @@ if (-not (Get-Command go -ErrorAction SilentlyContinue)) {
     Expand-Archive $zip -DestinationPath (Join-Path $HOME 'go-sdk') -Force
 }
 
+# Windows PowerShell turns native stderr (go's download progress) into a terminating
+# error when output is redirected under 'Stop'; native commands are checked by exit code.
+$ErrorActionPreference = 'Continue'
+
 $ref = if ($env:ENTIRE_AGENT_DEVIN_VERSION) { $env:ENTIRE_AGENT_DEVIN_VERSION } else { 'latest' }
 $env:GOBIN = Join-Path $HOME 'go\bin'
 go install "github.com/shinma06/entire-agent-devin/cmd/entire-agent-devin@$ref"
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 entire version
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 (Get-Command entire-agent-devin).Source
 
 if ($args.Count -gt 0) {
