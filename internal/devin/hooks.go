@@ -73,14 +73,15 @@ func AddToolDirsToPath() {
 // oldest first, by the next hook that can reach both; a payload entire rejects
 // is kept in devin-pending/failed. It runs in the DEVIN_PROJECT_DIR repository.
 // An unbootstrapped clone is bootstrapped first, passing the committed
-// checkpoint_remote explicitly so older entire-agent-devin binaries work too;
+// GitHub checkpoint_remote explicitly so older entire-agent-devin binaries work too;
 // on success the failed payloads are retried.
 func hookCommand(hook string) string {
 	return hookWrapperPrefix() +
 		`cd "${DEVIN_PROJECT_DIR:-.}" 2>/dev/null; r="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"; cd "$r"; q="$r/.entire/tmp/devin-pending"; ` +
 		`if command -v entire >/dev/null 2>&1 && command -v entire-agent-devin >/dev/null 2>&1; then ` +
 		`grep -qs '"checkpoint_push_remote"' "$r/.entire/settings.local.json" || { ` +
-		`c="$(tr -d ' \t\r\n' <"$r/.entire/settings.json" 2>/dev/null | sed -n 's/.*"checkpoint_remote":{[^}]*"repo":"\([^"]*\)".*/\1/p')"; ` +
+		`o="$(tr -d ' \t\r\n' <"$r/.entire/settings.json" 2>/dev/null | sed -n 's/.*"checkpoint_remote":{\([^}]*\)}.*/\1/p')"; c=; ` +
+		`case ",$o," in *',"provider":"github",'*) c="$(printf %s ",$o," | sed -n 's/.*,"repo":"\([^"\\/]*\/[^"\\/]*\)",.*/\1/p')";; esac; ` +
 		`entire-agent-devin bootstrap ${c:+--checkpoint-repo "$c"} </dev/null >/dev/null 2>&1 && ` +
 		`for f in "$q"/failed/*; do [ -f "$f" ] && mv -f "$f" "$q/"; done; }; ` +
 		`for f in "$q"/*; do [ -f "$f" ] || continue; if entire hooks devin "${f##*.}" <"$f" >/dev/null 2>&1; then rm -f "$f"; else mkdir -p "$q/failed" && mv -f "$f" "$q/failed/"; fi; done; ` +

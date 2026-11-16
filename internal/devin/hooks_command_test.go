@@ -199,3 +199,44 @@ func TestHookCommandBootstrapsWithCommittedCheckpointRepo(t *testing.T) {
 		t.Fatalf("failed payloads not retried: %v", files)
 	}
 }
+
+func TestHookCommandBootstrapPassesOnlyPlainGitHubCheckpointRepos(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("sh not available")
+	}
+	for name, tc := range map[string]struct{ remote, want string }{
+		"github":         {`{"provider":"github","repo":"me/ckpt"}`, "bootstrap --checkpoint-repo me/ckpt"},
+		"repo first":     {`{"repo":"me/ckpt", "provider": "github"}`, "bootstrap --checkpoint-repo me/ckpt"},
+		"other provider": {`{"provider":"gitlab","repo":"me/ckpt"}`, "bootstrap"},
+		"github prefix":  {`{"provider":"githubx","repo":"me/ckpt"}`, "bootstrap"},
+		"escaped":        {`{"provider":"github","repo":"me\/ckpt"}`, "bootstrap"},
+		"not owner/repo": {`{"provider":"github","repo":"a/b/c"}`, "bootstrap"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			repo, home := t.TempDir(), t.TempDir()
+			if out, err := exec.Command(gitPath(t), "init", "-q", repo).CombinedOutput(); err != nil {
+				t.Fatalf("git init: %v %s", err, out)
+			}
+			committed := `{"enabled":true,"strategy_options":{"checkpoint_remote":` + tc.remote + `}}`
+			if err := os.MkdirAll(filepath.Join(repo, ".entire"), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(repo, ".entire", "settings.json"), []byte(committed), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			bin := filepath.Join(home, ".local", "bin")
+			if err := os.MkdirAll(bin, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			for name, body := range map[string]string{"entire-agent-devin": "#!/bin/sh\necho \"$*\" >>\"$LOG\"\n", "entire": "#!/bin/sh\ncat >/dev/null\n"} {
+				if err := os.WriteFile(filepath.Join(bin, name), []byte(body), 0o755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			runHookCommand(t, repo, home, HookStop, `{"stop":true}`)
+			if log, _ := os.ReadFile(filepath.Join(home, "log")); string(log) != tc.want+"\n" {
+				t.Fatalf("calls %q, want %q", log, tc.want)
+			}
+		})
+	}
+}
