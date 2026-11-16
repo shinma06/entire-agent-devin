@@ -63,8 +63,11 @@ they were built for, so macOS and Windows sessions need this step (or a blueprin
 Starting sessions:
 
 - Specify the repository the work is for, so the session is recorded there (`DEVIN_PROJECT_DIR`) and that
-  repository's blueprint runs. Sessions without one load no project hooks; only the personal plugin below
-  records them.
+  repository's blueprint runs. Sessions without one still run the project hooks of the repositories in the
+  snapshot, without `DEVIN_PROJECT_DIR`, so their records land in whichever repository the hook's working
+  directory is in (or are queued there).
+- Devin macOS and Windows VMs did not run project hooks at all in our tests (no hook executions were logged), so
+  sessions there are not recorded yet even with the tools installed.
 - Entire only honours `external_agents` from the untracked `.entire/settings.local.json` (set by `bootstrap`);
   otherwise it answers `unknown agent "devin"`. Commit the `checkpoint_remote` in `.entire/settings.json` so hooks
   can bootstrap fresh clones themselves.
