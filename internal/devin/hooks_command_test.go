@@ -135,3 +135,23 @@ func TestInstallHooksUpgradesLegacyCommands(t *testing.T) {
 		t.Fatalf("user hook mentioning entire was removed:\n%s", data)
 	}
 }
+
+func TestHookCommandUsesDevinProjectDir(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("sh not available")
+	}
+	repo, home := t.TempDir(), t.TempDir()
+	if out, err := exec.Command(gitPath(t), "init", "-q", repo).CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v %s", err, out)
+	}
+	cmd := exec.Command("sh", "-c", hookCommand(HookSessionStart))
+	cmd.Dir = home
+	cmd.Env = []string{"PATH=" + filepath.Dir(gitPath(t)) + ":/usr/bin:/bin", "HOME=" + home, "DEVIN_PROJECT_DIR=" + repo}
+	cmd.Stdin = strings.NewReader(`{"source":"startup"}`)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("hook command must exit 0: %v\n%s", err, out)
+	}
+	if files, _ := filepath.Glob(filepath.Join(repo, ".entire", "tmp", "devin-pending", "*."+HookSessionStart)); len(files) != 1 {
+		t.Fatalf("payload not queued in DEVIN_PROJECT_DIR: %v", files)
+	}
+}

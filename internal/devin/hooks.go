@@ -71,12 +71,13 @@ func AddToolDirsToPath() {
 // the hook: when entire or entire-agent-devin cannot be found the payload is
 // queued under .entire/tmp/devin-pending (git-ignored, owner-only) and replayed,
 // oldest first, by the next hook that can reach both; a replay entire rejects
-// is kept in devin-pending/failed for inspection.
+// is kept in devin-pending/failed for inspection. It runs from the repository of
+// DEVIN_PROJECT_DIR, falling back to the hook's working directory.
 func hookCommand(hook string) string {
 	return hookWrapperPrefix() +
-		`r="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"; q="$r/.entire/tmp/devin-pending"; ` +
+		`cd "${DEVIN_PROJECT_DIR:-.}" 2>/dev/null; r="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"; cd "$r"; q="$r/.entire/tmp/devin-pending"; ` +
 		`if command -v entire >/dev/null 2>&1 && command -v entire-agent-devin >/dev/null 2>&1; then ` +
-		`grep -qs '"checkpoint_push_remote"' "$r/.entire/settings.local.json" || (cd "$r" && entire-agent-devin bootstrap </dev/null >/dev/null 2>&1); ` +
+		`grep -qs '"checkpoint_push_remote"' "$r/.entire/settings.local.json" || entire-agent-devin bootstrap </dev/null >/dev/null 2>&1; ` +
 		`for f in "$q"/*; do [ -f "$f" ] || continue; if entire hooks devin "${f##*.}" <"$f" >/dev/null 2>&1; then rm -f "$f"; else mkdir -p "$q/failed" && mv -f "$f" "$q/failed/"; fi; done; ` +
 		`mkdir -p "$q" && cat >"$q/.$$" && if ` + entireHookPrefix + hook + ` <"$q/.$$"; then rm -f "$q/.$$"; else mkdir -p "$q/failed" && mv -f "$q/.$$" "$q/failed/$(date +%s)-$$.` + hook + `"; fi; ` +
 		`else mkdir -p "$q" && cat >"$q/.$$" && mv -f "$q/.$$" "$q/$(date +%s)-$(printf %06d "$(ls "$q" | wc -l)")-$$.` + hook + `"; fi; exit 0`
