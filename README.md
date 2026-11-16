@@ -37,7 +37,10 @@ Devin runs hooks with a minimal PATH (no shell profile), so the hook command als
 `~/.local/bin`, `~/go/bin`, `~/bin`, `/opt/homebrew/bin` and `/usr/local/bin`, and always exits 0.
 If `entire` or `entire-agent-devin` is still missing, the payload is queued in
 `.entire/tmp/devin-pending/` (git-ignored, owner-only) and replayed by the next hook that finds both;
-replays Entire rejects are kept in `.entire/tmp/devin-pending/failed/`.
+payloads Entire rejects (live or replayed) are kept in `.entire/tmp/devin-pending/failed/`.
+When the clone is not bootstrapped yet (no `checkpoint_push_remote` in `.entire/settings.local.json`), the hook runs
+`entire-agent-devin bootstrap` first, which takes the checkpoint repository from the GitHub `checkpoint_remote`
+committed in `.entire/settings.json`; without one it does nothing and Entire rejects the payloads.
 Re-run `entire enable --agent devin` (or `bootstrap`) to upgrade hooks written by older versions.
 
 ### Devin VMs (Linux, macOS, Windows)
@@ -60,9 +63,11 @@ they were built for, so macOS and Windows sessions need this step (or a blueprin
 Starting sessions:
 
 - Specify the repository the work is for, so the session is recorded there (`DEVIN_PROJECT_DIR`) and that
-  repository's blueprint runs. Sessions without one still run the project hooks of repositories already on the VM,
-  and are recorded in those that have Entire enabled.
-- Repositories need `external_agents` enabled (done by `bootstrap`); otherwise Entire answers `unknown agent "devin"`.
+  repository's blueprint runs. Sessions without one load no project hooks; only the personal plugin below
+  records them.
+- Entire only honours `external_agents` from the untracked `.entire/settings.local.json` (set by `bootstrap`);
+  otherwise it answers `unknown agent "devin"`. Commit the `checkpoint_remote` in `.entire/settings.json` so hooks
+  can bootstrap fresh clones themselves.
 - Hooks load at session start, so after setup the records start with the current session's next hook,
   plus anything queued before.
 
