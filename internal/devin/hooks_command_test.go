@@ -88,7 +88,7 @@ func TestHooksFileKeepsShellReadable(t *testing.T) {
 
 func TestInstallHooksUpgradesLegacyCommands(t *testing.T) {
 	repo := t.TempDir()
-	legacy := `{"Stop":[{"matcher":"","hooks":[{"type":"command","command":"entire hooks devin stop","timeout":60}]}]}`
+	legacy := `{"Stop":[{"matcher":"","hooks":[{"type":"command","command":"entire hooks devin stop","timeout":60},{"type":"command","command":"echo entire hooks devin stop >>log"}]}]}`
 	_ = os.MkdirAll(filepath.Dir(HooksFile(repo)), 0o755)
 	if err := os.WriteFile(HooksFile(repo), []byte(legacy), 0o644); err != nil {
 		t.Fatal(err)
@@ -105,5 +105,11 @@ func TestInstallHooksUpgradesLegacyCommands(t *testing.T) {
 	data, _ := os.ReadFile(HooksFile(repo))
 	if strings.Count(string(data), entireHookPrefix+HookStop+";") != 1 || strings.Contains(string(data), `"entire hooks devin stop"`) {
 		t.Fatalf("legacy hook not replaced:\n%s", data)
+	}
+	if err := UninstallHooks(repo); err != nil {
+		t.Fatal(err)
+	}
+	if data, _ := os.ReadFile(HooksFile(repo)); !strings.Contains(string(data), "echo entire hooks devin stop >>log") {
+		t.Fatalf("user hook mentioning entire was removed:\n%s", data)
 	}
 }
