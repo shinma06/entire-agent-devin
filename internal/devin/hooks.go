@@ -78,11 +78,18 @@ func hookCommand(hook string) string {
 		`if command -v entire >/dev/null 2>&1 && command -v entire-agent-devin >/dev/null 2>&1; then ` +
 		`for f in "$q"/*; do [ -f "$f" ] || continue; if entire hooks devin "${f##*.}" <"$f" >/dev/null 2>&1; then rm -f "$f"; else mkdir -p "$q/failed" && mv -f "$f" "$q/failed/"; fi; done; ` +
 		entireHookPrefix + hook + `; ` +
-		`else mkdir -p "$q" && cat >"$q/$(date +%s)-$(printf %06d "$(ls "$q" | wc -l)")-$$.` + hook + `"; fi; exit 0`
+		`else mkdir -p "$q" && cat >"$q/.$$" && mv -f "$q/.$$" "$q/$(date +%s)-$(printf %06d "$(ls "$q" | wc -l)")-$$.` + hook + `"; fi; exit 0`
 }
 
+// isEntireHookCommand matches only commands install-hooks writes, current or
+// legacy, so user hooks that merely mention entire are left alone.
 func isEntireHookCommand(cmd string) bool {
-	return strings.Contains(cmd, entireHookPrefix)
+	for _, e := range devinHookEvents {
+		if cmd == entireHookPrefix+e.Hook || cmd == hookCommand(e.Hook) {
+			return true
+		}
+	}
+	return false
 }
 
 func hookNames() []string {
