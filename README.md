@@ -39,8 +39,9 @@ If `entire` or `entire-agent-devin` is still missing, the payload is queued in
 `.entire/tmp/devin-pending/` (git-ignored, owner-only) and replayed by the next hook that finds both;
 payloads Entire rejects (live or replayed) are kept in `.entire/tmp/devin-pending/failed/`.
 When the clone is not bootstrapped yet (no `checkpoint_push_remote` in `.entire/settings.local.json`), the hook runs
-`entire-agent-devin bootstrap` first, which takes the checkpoint repository from the GitHub `checkpoint_remote`
-committed in `.entire/settings.json`; without one it does nothing and Entire rejects the payloads.
+`entire-agent-devin bootstrap --checkpoint-repo <repo>` first, with the repository of the `checkpoint_remote`
+committed in `.entire/settings.json` (so binaries older than the hooks work too), then retries the payloads in
+`failed/`; without a committed `checkpoint_remote` it does nothing and Entire rejects the payloads.
 Re-run `entire enable --agent devin` (or `bootstrap`) to upgrade hooks written by older versions.
 
 ### Devin VMs (Linux, macOS, Windows)
