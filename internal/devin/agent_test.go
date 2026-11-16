@@ -118,7 +118,7 @@ func TestHooksInstallPreservesUserHooks(t *testing.T) {
 		t.Fatal("hooks not reported installed")
 	}
 	partial, _ := os.ReadFile(path)
-	_ = os.WriteFile(path, []byte(strings.Replace(string(partial), entireHookPrefix+HookStop, "./other.sh", 1)), 0o644)
+	_ = os.WriteFile(path, []byte(strings.Replace(string(partial), jsonString(t, hookCommand(HookStop)), `"./other.sh"`, 1)), 0o644)
 	if ok, _ := AreHooksInstalled(repo); ok {
 		t.Fatal("partial install reported as installed")
 	}
@@ -257,4 +257,13 @@ func TestTurnStartSurvivesDuplicateToolDelivery(t *testing.T) {
 	if err != nil || ev == nil || ev.Type != protocol.EventTurnStart {
 		t.Fatalf("tool call = %+v, %v; want TurnStart", ev, err)
 	}
+}
+
+func jsonString(t *testing.T, s string) string {
+	t.Helper()
+	b, err := marshalJSON(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
 }

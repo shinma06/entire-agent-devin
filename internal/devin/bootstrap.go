@@ -15,6 +15,7 @@ import (
 const CheckpointRemote = "checkpoints"
 
 var runEntireEnable = func(repoRoot string, out io.Writer) error {
+	AddToolDirsToPath()
 	cmd := exec.Command("entire", "enable", "--agent", AgentName, "--checkpoint-push-remote", CheckpointRemote)
 	cmd.Dir = repoRoot
 	cmd.Stdin = nil
