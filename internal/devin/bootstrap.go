@@ -29,7 +29,13 @@ var runEntireEnable = func(repoRoot string, out io.Writer) error {
 // Devin hooks with checkpoints pinned to that remote. Pinning matters in Devin clones, whose
 // origin is a git proxy URL that Entire cannot match to the checkpoint repository's owner; it
 // would otherwise push transcripts to origin.
+//
+// An empty checkpointRepo falls back to the GitHub checkpoint_remote committed in
+// .entire/settings.json, so hooks can bootstrap fresh clones on their own.
 func Bootstrap(repoRoot, checkpointRepo string, out io.Writer) error {
+	if checkpointRepo == "" {
+		checkpointRepo = committedCheckpointRepo(repoRoot)
+	}
 	if strings.Count(checkpointRepo, "/") != 1 || strings.HasPrefix(checkpointRepo, "/") || strings.HasSuffix(checkpointRepo, "/") {
 		return fmt.Errorf("checkpoint repo must be owner/repo, got %q", checkpointRepo)
 	}
@@ -209,4 +215,29 @@ func allowExternalAgents(repoRoot string) error {
 		return err
 	}
 	return os.WriteFile(path, append(data, '\n'), 0o644)
+}
+
+// committedCheckpointRepo returns owner/repo of the GitHub checkpoint_remote in the
+// repository's committed .entire/settings.json, or "" when there is none.
+func committedCheckpointRepo(repoRoot string) string {
+	top, err := gitOut(repoRoot, "rev-parse", "--show-toplevel")
+	if err != nil {
+		return ""
+	}
+	data, err := os.ReadFile(filepath.Join(top, ".entire", "settings.json"))
+	if err != nil {
+		return ""
+	}
+	var settings struct {
+		StrategyOptions struct {
+			CheckpointRemote struct {
+				Provider string `json:"provider"`
+				Repo     string `json:"repo"`
+			} `json:"checkpoint_remote"`
+		} `json:"strategy_options"`
+	}
+	if json.Unmarshal(data, &settings) != nil || settings.StrategyOptions.CheckpointRemote.Provider != "github" {
+		return ""
+	}
+	return settings.StrategyOptions.CheckpointRemote.Repo
 }

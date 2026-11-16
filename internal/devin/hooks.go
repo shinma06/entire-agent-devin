@@ -73,19 +73,24 @@ func AddToolDirsToPath() {
 // oldest first, by the next hook that can reach both; a replay entire rejects
 // is kept in devin-pending/failed for inspection.
 func hookCommand(hook string) string {
-	return `PATH="$PATH:` + hookSearchPath() + `"; umask 077; ` +
-		`q="$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.entire/tmp/devin-pending"; ` +
+	return hookWrapperPrefix() +
+		`r="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"; q="$r/.entire/tmp/devin-pending"; ` +
 		`if command -v entire >/dev/null 2>&1 && command -v entire-agent-devin >/dev/null 2>&1; then ` +
+		`grep -qs '"checkpoint_push_remote"' "$r/.entire/settings.local.json" || (cd "$r" && entire-agent-devin bootstrap </dev/null >/dev/null 2>&1); ` +
 		`for f in "$q"/*; do [ -f "$f" ] || continue; if entire hooks devin "${f##*.}" <"$f" >/dev/null 2>&1; then rm -f "$f"; else mkdir -p "$q/failed" && mv -f "$f" "$q/failed/"; fi; done; ` +
-		entireHookPrefix + hook + `; ` +
+		`mkdir -p "$q" && cat >"$q/.$$" && if ` + entireHookPrefix + hook + ` <"$q/.$$"; then rm -f "$q/.$$"; else mkdir -p "$q/failed" && mv -f "$q/.$$" "$q/failed/$(date +%s)-$$.` + hook + `"; fi; ` +
 		`else mkdir -p "$q" && cat >"$q/.$$" && mv -f "$q/.$$" "$q/$(date +%s)-$(printf %06d "$(ls "$q" | wc -l)")-$$.` + hook + `"; fi; exit 0`
+}
+
+func hookWrapperPrefix() string {
+	return `PATH="$PATH:` + hookSearchPath() + `"; umask 077; `
 }
 
 // isEntireHookCommand matches only commands install-hooks writes (the bare
 // legacy form, or any version of the queueing wrapper), so user hooks that
 // merely mention entire are left alone.
 func isEntireHookCommand(cmd string) bool {
-	wrapper := `PATH="$PATH:` + hookSearchPath() + `"; umask 077; q=`
+	wrapper := hookWrapperPrefix()
 	for _, e := range devinHookEvents {
 		if cmd == entireHookPrefix+e.Hook ||
 			(strings.HasPrefix(cmd, wrapper) && strings.HasSuffix(cmd, "."+e.Hook+`"; fi; exit 0`)) {

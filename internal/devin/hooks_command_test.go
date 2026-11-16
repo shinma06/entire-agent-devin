@@ -63,7 +63,7 @@ func TestHookCommandQueuesWithoutEntireThenReplays(t *testing.T) {
 
 	runHookCommand(t, repo, home, HookStop, `{"stop":true}`)
 	log, _ := os.ReadFile(filepath.Join(home, "log"))
-	want := "hooks devin user-prompt-submit|{\"prompt\":\"one\"}\nhooks devin post-tool-use|{\"tool\":\"exec\"}\nhooks devin stop|{\"stop\":true}\n"
+	want := "bootstrap|\nhooks devin user-prompt-submit|{\"prompt\":\"one\"}\nhooks devin post-tool-use|{\"tool\":\"exec\"}\nhooks devin stop|{\"stop\":true}\n"
 	if string(log) != want {
 		t.Fatalf("entire calls:\n%s\nwant:\n%s", log, want)
 	}
@@ -72,6 +72,9 @@ func TestHookCommandQueuesWithoutEntireThenReplays(t *testing.T) {
 	}
 	if failed, _ := filepath.Glob(filepath.Join(queue, "failed", "*."+HookPostToolUse)); len(failed) != 1 {
 		t.Fatalf("rejected replay not kept: %v", failed)
+	}
+	if failed, _ := filepath.Glob(filepath.Join(queue, "failed", "*."+HookStop)); len(failed) != 1 {
+		t.Fatalf("rejected live payload not kept: %v", failed)
 	}
 }
 
@@ -100,7 +103,7 @@ func TestInstallHooksReplacesOlderWrapper(t *testing.T) {
 		t.Fatal(err)
 	}
 	data, _ := os.ReadFile(HooksFile(repo))
-	if strings.Count(string(data), "q=x;") != 0 || strings.Count(string(data), entireHookPrefix+HookStop+";") != 1 {
+	if strings.Count(string(data), "q=x;") != 0 || strings.Count(string(data), entireHookPrefix+HookStop+" <") != 1 {
 		t.Fatalf("older wrapper not replaced:\n%s", data)
 	}
 }
@@ -122,7 +125,7 @@ func TestInstallHooksUpgradesLegacyCommands(t *testing.T) {
 		t.Fatalf("upgrade: %d %v", n, err)
 	}
 	data, _ := os.ReadFile(HooksFile(repo))
-	if strings.Count(string(data), entireHookPrefix+HookStop+";") != 1 || strings.Contains(string(data), `"entire hooks devin stop"`) {
+	if strings.Count(string(data), entireHookPrefix+HookStop+" <") != 1 || strings.Contains(string(data), `"entire hooks devin stop"`) {
 		t.Fatalf("legacy hook not replaced:\n%s", data)
 	}
 	if err := UninstallHooks(repo); err != nil {
