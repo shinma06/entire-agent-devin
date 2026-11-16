@@ -22,6 +22,7 @@ if (-not (Get-Command go -ErrorAction SilentlyContinue)) {
 }
 
 $ref = if ($env:ENTIRE_AGENT_DEVIN_VERSION) { $env:ENTIRE_AGENT_DEVIN_VERSION } else { 'latest' }
+$env:GOBIN = Join-Path $HOME 'go\bin'
 go install "github.com/shinma06/entire-agent-devin/cmd/entire-agent-devin@$ref"
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 

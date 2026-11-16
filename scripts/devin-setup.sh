@@ -23,6 +23,7 @@ if ! command -v go >/dev/null 2>&1; then
   curl -fsSL "https://go.dev/dl/${version}.${os}-${arch}.tar.gz" | tar -xz -C "$HOME/go-sdk"
 fi
 
+export GOBIN="$HOME/go/bin"
 go install "github.com/shinma06/entire-agent-devin/cmd/entire-agent-devin@${ENTIRE_AGENT_DEVIN_VERSION:-latest}"
 
 entire version
