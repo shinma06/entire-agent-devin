@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strconv"
 
 	"github.com/shinma06/entire-agent-devin/internal/devin"
@@ -210,7 +211,11 @@ func run(cmd string, args []string, in io.Reader, out io.Writer) error {
 		}
 		return protocol.WriteJSON(out, protocol.CompactTranscriptResponse{Transcript: base64.StdEncoding.EncodeToString(compact)})
 	case "dispatch-targets":
-		for _, repo := range devin.DispatchTargets() {
+		targets := devin.DispatchTargets
+		if slices.Contains(args, "--bootstrap") {
+			targets = func() []string { return devin.BootstrapDispatchTargets(os.Stderr) }
+		}
+		for _, repo := range targets() {
 			if _, err := fmt.Fprintln(out, repo); err != nil {
 				return err
 			}
@@ -226,6 +231,11 @@ func run(cmd string, args []string, in io.Reader, out io.Writer) error {
 			return err
 		}
 		return devin.Bootstrap(root, f["checkpoint-repo"], os.Stderr)
+	case "doctor":
+		if n := devin.Doctor(out); n > 0 {
+			return fmt.Errorf("doctor: %d problem(s)", n)
+		}
+		return nil
 	case "version", "--version":
 		_, err := fmt.Fprintln(out, "entire-agent-devin dev")
 		return err

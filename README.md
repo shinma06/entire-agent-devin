@@ -38,10 +38,12 @@ Devin runs hooks with a minimal PATH (no shell profile), so the hook command als
 If `entire` or `entire-agent-devin` is still missing, the payload is queued in
 `.entire/tmp/devin-pending/` (git-ignored, owner-only) and replayed by the next hook that finds both;
 payloads Entire rejects (live or replayed) are kept in `.entire/tmp/devin-pending/failed/`.
-When the clone is not bootstrapped yet (no `checkpoint_push_remote` in `.entire/settings.local.json`), the hook runs
-`entire-agent-devin bootstrap --checkpoint-repo <repo>` first, with the repository of the `checkpoint_remote`
-committed in `.entire/settings.json` (so binaries older than the hooks work too), then retries the payloads in
-`failed/`; without a committed `checkpoint_remote` it does nothing and Entire rejects the payloads.
+When the clone is not bootstrapped yet (neither `checkpoint_push_remote` nor `push_sessions: false` in
+`.entire/settings.local.json`), the hook runs `entire-agent-devin bootstrap` first, passing
+`--checkpoint-repo <repo>` from the `checkpoint_remote` committed in `.entire/settings.json` when there is one
+(so binaries older than the hooks work too), then retries the payloads in `failed/`. Without a committed
+`checkpoint_remote`, bootstrap is local-only: sessions and checkpoints are recorded in the clone, and pushing is off
+(`push_sessions: false`), so transcripts never reach `origin`.
 Re-run `entire enable --agent devin` (or `bootstrap`) to upgrade hooks written by older versions.
 
 ### Devin VMs (Linux, macOS, Windows)
@@ -70,14 +72,19 @@ Starting sessions:
 - Devin macOS and Windows VMs did not run project hooks at all in our tests (no hook executions were logged), so
   sessions there are not recorded yet even with the tools installed.
 - Entire only honours `external_agents` from the untracked `.entire/settings.local.json` (set by `bootstrap`);
-  otherwise it answers `unknown agent "devin"`. Commit the `checkpoint_remote` in `.entire/settings.json` so hooks
-  can bootstrap fresh clones themselves.
+  otherwise it answers `unknown agent "devin"`. Hooks bootstrap fresh clones themselves; commit the
+  `checkpoint_remote` in `.entire/settings.json` to also push checkpoints to that private repository.
+- `entire-agent-devin doctor` checks the tools, hooks (outdated or duplicated), `external_agents`, the checkpoint
+  destination and the payload queue for the current repository and every dispatch target, and exits 1 on problems.
+  It never prints payloads or remote URLs.
 - Hooks load at session start, so after setup the records start with the current session's next hook,
   plus anything queued before.
 
 For sessions where project hooks are not loaded, install the Devin plugin in [`plugin/`](plugin/) as a personal plugin.
 It runs `entire hooks devin <hook>` in every repository listed by `entire-agent-devin dispatch-targets`
 (current dir, `$DEVIN_PROJECT_DIR`, and `$ENTIRE_DEVIN_REPOS` globs, default `~/repos/*`) that has Entire's Devin hooks installed.
+With `--bootstrap` (used by the plugin), candidates that opted into Entire (Devin hooks or a committed
+`.entire/settings.json`) are bootstrapped first, so `external_agents` is on in every repository a session touches.
 
 ## Checkpoint storage
 

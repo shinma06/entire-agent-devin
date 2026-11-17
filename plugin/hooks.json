@@ -5,7 +5,7 @@
       "hooks": [
         {
           "type": "command",
-          "command": "PATH=\"$PATH:$HOME/.local/bin:$HOME/go/bin:$HOME/bin:/opt/homebrew/bin:/usr/local/bin\"; command -v entire-agent-devin >/dev/null 2>&1 || exit 0; p=$(cat); entire-agent-devin dispatch-targets | while IFS= read -r d; do (cd \"$d\" && printf '%s' \"$p\" | entire hooks devin session-start >/dev/null); done; exit 0",
+          "command": "PATH=\"$PATH:$HOME/.local/bin:$HOME/go/bin:$HOME/bin:/opt/homebrew/bin:/usr/local/bin\"; command -v entire-agent-devin >/dev/null 2>&1 || exit 0; p=$(cat); entire-agent-devin dispatch-targets --bootstrap 2>/dev/null | while IFS= read -r d; do (cd \"$d\" && printf '%s' \"$p\" | entire hooks devin session-start >/dev/null); done; exit 0",
           "timeout": 60
         }
       ]
@@ -17,7 +17,7 @@
       "hooks": [
         {
           "type": "command",
-          "command": "PATH=\"$PATH:$HOME/.local/bin:$HOME/go/bin:$HOME/bin:/opt/homebrew/bin:/usr/local/bin\"; command -v entire-agent-devin >/dev/null 2>&1 || exit 0; p=$(cat); entire-agent-devin dispatch-targets | while IFS= read -r d; do (cd \"$d\" && printf '%s' \"$p\" | entire hooks devin user-prompt-submit >/dev/null); done; exit 0",
+          "command": "PATH=\"$PATH:$HOME/.local/bin:$HOME/go/bin:$HOME/bin:/opt/homebrew/bin:/usr/local/bin\"; command -v entire-agent-devin >/dev/null 2>&1 || exit 0; p=$(cat); entire-agent-devin dispatch-targets --bootstrap 2>/dev/null | while IFS= read -r d; do (cd \"$d\" && printf '%s' \"$p\" | entire hooks devin user-prompt-submit >/dev/null); done; exit 0",
           "timeout": 60
         }
       ]
@@ -29,7 +29,7 @@
       "hooks": [
         {
           "type": "command",
-          "command": "PATH=\"$PATH:$HOME/.local/bin:$HOME/go/bin:$HOME/bin:/opt/homebrew/bin:/usr/local/bin\"; command -v entire-agent-devin >/dev/null 2>&1 || exit 0; p=$(cat); entire-agent-devin dispatch-targets | while IFS= read -r d; do (cd \"$d\" && printf '%s' \"$p\" | entire hooks devin post-tool-use >/dev/null); done; exit 0",
+          "command": "PATH=\"$PATH:$HOME/.local/bin:$HOME/go/bin:$HOME/bin:/opt/homebrew/bin:/usr/local/bin\"; command -v entire-agent-devin >/dev/null 2>&1 || exit 0; p=$(cat); entire-agent-devin dispatch-targets --bootstrap 2>/dev/null | while IFS= read -r d; do (cd \"$d\" && printf '%s' \"$p\" | entire hooks devin post-tool-use >/dev/null); done; exit 0",
           "timeout": 60
         }
       ]
@@ -41,7 +41,7 @@
       "hooks": [
         {
           "type": "command",
-          "command": "PATH=\"$PATH:$HOME/.local/bin:$HOME/go/bin:$HOME/bin:/opt/homebrew/bin:/usr/local/bin\"; command -v entire-agent-devin >/dev/null 2>&1 || exit 0; p=$(cat); entire-agent-devin dispatch-targets | while IFS= read -r d; do (cd \"$d\" && printf '%s' \"$p\" | entire hooks devin stop >/dev/null; git remote get-url checkpoints >/dev/null 2>&1 && printf '' | ENTIRE_PRE_PUSH_STDIN_REFS=1 entire hooks git pre-push checkpoints >/dev/null 2>&1); done; exit 0",
+          "command": "PATH=\"$PATH:$HOME/.local/bin:$HOME/go/bin:$HOME/bin:/opt/homebrew/bin:/usr/local/bin\"; command -v entire-agent-devin >/dev/null 2>&1 || exit 0; p=$(cat); entire-agent-devin dispatch-targets --bootstrap 2>/dev/null | while IFS= read -r d; do (cd \"$d\" && printf '%s' \"$p\" | entire hooks devin stop >/dev/null; git remote get-url checkpoints >/dev/null 2>&1 && printf '' | ENTIRE_PRE_PUSH_STDIN_REFS=1 entire hooks git pre-push checkpoints >/dev/null 2>&1); done; exit 0",
           "timeout": 60
         }
       ]
@@ -53,7 +53,7 @@
       "hooks": [
         {
           "type": "command",
-          "command": "PATH=\"$PATH:$HOME/.local/bin:$HOME/go/bin:$HOME/bin:/opt/homebrew/bin:/usr/local/bin\"; command -v entire-agent-devin >/dev/null 2>&1 || exit 0; p=$(cat); entire-agent-devin dispatch-targets | while IFS= read -r d; do (cd \"$d\" && printf '%s' \"$p\" | entire hooks devin post-compaction >/dev/null); done; exit 0",
+          "command": "PATH=\"$PATH:$HOME/.local/bin:$HOME/go/bin:$HOME/bin:/opt/homebrew/bin:/usr/local/bin\"; command -v entire-agent-devin >/dev/null 2>&1 || exit 0; p=$(cat); entire-agent-devin dispatch-targets --bootstrap 2>/dev/null | while IFS= read -r d; do (cd \"$d\" && printf '%s' \"$p\" | entire hooks devin post-compaction >/dev/null); done; exit 0",
           "timeout": 60
         }
       ]
@@ -65,7 +65,7 @@
       "hooks": [
         {
           "type": "command",
-          "command": "PATH=\"$PATH:$HOME/.local/bin:$HOME/go/bin:$HOME/bin:/opt/homebrew/bin:/usr/local/bin\"; command -v entire-agent-devin >/dev/null 2>&1 || exit 0; p=$(cat); entire-agent-devin dispatch-targets | while IFS= read -r d; do (cd \"$d\" && printf '%s' \"$p\" | entire hooks devin session-end >/dev/null); done; exit 0",
+          "command": "PATH=\"$PATH:$HOME/.local/bin:$HOME/go/bin:$HOME/bin:/opt/homebrew/bin:/usr/local/bin\"; command -v entire-agent-devin >/dev/null 2>&1 || exit 0; p=$(cat); entire-agent-devin dispatch-targets --bootstrap 2>/dev/null | while IFS= read -r d; do (cd \"$d\" && printf '%s' \"$p\" | entire hooks devin session-end >/dev/null); done; exit 0",
           "timeout": 60
         }
       ]

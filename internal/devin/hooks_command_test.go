@@ -253,3 +253,33 @@ func TestHookCommandBootstrapPassesOnlyPlainGitHubCheckpointRepos(t *testing.T) 
 		})
 	}
 }
+
+func TestHookCommandSkipsBootstrapForLocalOnlyClones(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("sh not available")
+	}
+	repo, home := t.TempDir(), t.TempDir()
+	if out, err := exec.Command(gitPath(t), "init", "-q", repo).CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v %s", err, out)
+	}
+	if err := os.MkdirAll(filepath.Join(repo, ".entire"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	local := "{\n  \"external_agents\": true,\n  \"strategy_options\": {\n    \"push_sessions\": false\n  }\n}\n"
+	if err := os.WriteFile(filepath.Join(repo, ".entire", "settings.local.json"), []byte(local), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	bin := filepath.Join(home, ".local", "bin")
+	if err := os.MkdirAll(bin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for name, body := range map[string]string{"entire-agent-devin": "#!/bin/sh\necho \"$*\" >>\"$LOG\"\n", "entire": "#!/bin/sh\ncat >/dev/null; echo \"$*\" >>\"$LOG\"\n"} {
+		if err := os.WriteFile(filepath.Join(bin, name), []byte(body), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	runHookCommand(t, repo, home, HookStop, `{"stop":true}`)
+	if log, _ := os.ReadFile(filepath.Join(home, "log")); string(log) != "hooks devin stop\n" {
+		t.Fatalf("calls %q", log)
+	}
+}

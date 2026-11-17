@@ -80,8 +80,8 @@ func hookCommand(hook string) string {
 	return hookWrapperPrefix() +
 		`cd "${DEVIN_PROJECT_DIR:-.}" 2>/dev/null; r="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"; cd "$r"; q="$r/.entire/tmp/devin-pending"; ` +
 		`if command -v entire >/dev/null 2>&1 && command -v entire-agent-devin >/dev/null 2>&1; then ` +
-		`grep -qs '"checkpoint_push_remote"' "$r/.entire/settings.local.json" || { ` +
-		`o="$(tr -d ' \t\r\n' <"$r/.entire/settings.json" 2>/dev/null | sed -n 's/.*"checkpoint_remote":{\([^}]*\)}.*/\1/p')"; c=; ` +
+		`grep -qsE '"checkpoint_push_remote"|"push_sessions": *false' "$r/.entire/settings.local.json" || { ` +
+		`o="$(tr -d ' \t\r\n' 2>/dev/null <"$r/.entire/settings.json" | sed -n 's/.*"checkpoint_remote":{\([^}]*\)}.*/\1/p')"; c=; ` +
 		`case ",$o," in *',"provider":"github",'*) c="$(printf %s ",$o," | sed -n 's/.*,"repo":"\([^"\\/]*\/[^"\\/]*\)",.*/\1/p')";; esac; ` +
 		`h="$r/.devin/hooks.v1.json"; mkdir -p "$q" && cp -p "$h" "$q/.hooks.$$" 2>/dev/null; ` +
 		`entire-agent-devin bootstrap ${c:+--checkpoint-repo "$c"} </dev/null >/dev/null 2>&1 && ` +
