@@ -87,7 +87,34 @@ func TestImportKeepsHookTranscript(t *testing.T) {
 	if err := appendRecord(path, Record{V: 1, Kind: KindSessionStart, SessionID: "devin-" + childID, Source: "startup"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := Import(repo, []string{childID}, &bytes.Buffer{}); err == nil || !strings.Contains(err.Error(), "recorded by hooks") {
+	if err := Import(repo, []string{childID}, &bytes.Buffer{}); err == nil || !strings.Contains(err.Error(), "records from hooks") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestImportKeepsHookRecordsAppendedAfterImport(t *testing.T) {
+	fakeAPI(t)
+	repo := t.TempDir()
+	if err := Import(repo, []string{childID}, &bytes.Buffer{}); err != nil {
+		t.Fatal(err)
+	}
+	path := SessionFile(SessionDir(repo), "devin-"+childID)
+	if err := appendRecord(path, Record{V: 1, Kind: KindTool, SessionID: "devin-" + childID, ToolName: "exec"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := Import(repo, []string{childID}, &bytes.Buffer{}); err == nil {
+		t.Fatal("refresh overwrote a hook record")
+	}
+}
+
+func TestSyncFailsWhenAChildFails(t *testing.T) {
+	fakeAPI(t)
+	repo := t.TempDir()
+	resp, _ := json.Marshal("session_id=" + strings.Repeat("0", 32))
+	if err := appendRecord(SessionFile(SessionDir(repo), "devin-p"), Record{V: 1, Kind: KindTool, SessionID: "devin-p", ToolName: SubagentTool, ToolResponse: resp}); err != nil {
+		t.Fatal(err)
+	}
+	if err := Sync(repo, "devin-p", &bytes.Buffer{}); err == nil || !strings.Contains(err.Error(), "1 of 1") {
 		t.Fatalf("err = %v", err)
 	}
 }

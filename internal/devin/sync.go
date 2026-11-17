@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -47,25 +48,51 @@ func importSession(c *apiClient, repoRoot, id string) (SessionInfo, string, erro
 		return info, "", err
 	}
 	path := SessionFile(SessionDir(repoRoot), info.SessionID)
-	if data, err := os.ReadFile(path); err == nil {
-		if recs := parseRecords(data); len(recs) > 0 && recs[0].Source != importSource {
-			return info, "", fmt.Errorf("import: %s was recorded by hooks; not overwriting %s", info.SessionID, path)
-		}
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return info, "", err
-	}
 	data, err := importedTranscript(info, msgs)
 	if err != nil {
 		return info, "", err
 	}
+	return info, path, replaceImported(path, data)
+}
+
+// replaceImported writes an imported transcript under the session lock hooks use, and
+// only over a file whose every record came from an import.
+func replaceImported(path string, data []byte) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
-		return info, "", err
+		return err
 	}
-	tmp := path + ".import"
-	if err := os.WriteFile(tmp, data, 0o600); err != nil {
-		return info, "", err
+	lock, err := os.OpenFile(strings.TrimSuffix(path, ".jsonl")+".lock", os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return err
 	}
-	return info, path, os.Rename(tmp, path)
+	defer lock.Close()
+	unlock, err := lockFile(lock)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	if old, err := os.ReadFile(path); err == nil {
+		for _, r := range parseRecords(old) {
+			if r.Source != importSource {
+				return fmt.Errorf("import: %s has records from hooks; not overwriting it", path)
+			}
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".import-*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name())
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmp.Name(), path)
 }
 
 func importedTranscript(info SessionInfo, msgs []apiMessage) ([]byte, error) {
@@ -76,7 +103,7 @@ func importedTranscript(info SessionInfo, msgs []apiMessage) ([]byte, error) {
 	}
 	recs := []Record{{V: 1, TS: unixTS(start), Kind: KindSessionStart, SessionID: info.SessionID, Source: importSource, Devin: &info}}
 	for _, m := range msgs {
-		rec := Record{V: 1, TS: unixTS(m.CreatedAt), SessionID: info.SessionID}
+		rec := Record{V: 1, TS: unixTS(m.CreatedAt), SessionID: info.SessionID, Source: importSource}
 		switch m.Source {
 		case "user":
 			rec.Kind, rec.PromptID, rec.Prompt = KindUser, m.EventID, cleanPrompt(m.Message)
@@ -137,10 +164,12 @@ func Sync(repoRoot, sessionID string, w io.Writer) error {
 	if len(recs) > 0 {
 		parent = recs[0].SessionID
 	}
+	failed := 0
 	for _, child := range children {
 		info, path, err := importSession(c, repoRoot, child)
 		if err != nil {
 			fmt.Fprintf(w, "sync: %s: %v\n", child, err)
+			failed++
 			continue
 		}
 		rec := Record{V: 1, TS: now().Format(time.RFC3339Nano), Kind: KindSubagentSync, SessionID: parent, Devin: &info}
@@ -149,6 +178,9 @@ func Sync(repoRoot, sessionID string, w io.Writer) error {
 			return err
 		}
 		fmt.Fprintf(w, "synced %s (%s, %.2f ACUs, %d PRs) -> %s\n", info.SessionID, info.Status, info.ACUsConsumed, len(info.PullRequests), path)
+	}
+	if failed > 0 {
+		return fmt.Errorf("sync: %d of %d child sessions failed", failed, len(children))
 	}
 	return nil
 }
