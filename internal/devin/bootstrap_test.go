@@ -189,6 +189,50 @@ func TestBootstrapRestoresTrackedEntireHooks(t *testing.T) {
 	}
 }
 
+func TestBootstrapKeepsSettingsLineEndings(t *testing.T) {
+	for _, tc := range []struct {
+		name, rewrite, want string
+	}{
+		{"line endings only", "{\n  \"enabled\": true\n}\n", "{\r\n  \"enabled\": true\r\n}\r\n"},
+		{"real change", "{\n  \"enabled\": false\n}\n", "{\n  \"enabled\": false\n}\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := t.TempDir()
+			run := func(args ...string) {
+				t.Helper()
+				cmd := exec.Command("git", args...)
+				cmd.Dir = repo
+				cmd.Env = append(os.Environ(), "GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@t", "GIT_COMMITTER_NAME=t", "GIT_COMMITTER_EMAIL=t@t")
+				if out, err := cmd.CombinedOutput(); err != nil {
+					t.Fatalf("git %v: %v: %s", args, err, out)
+				}
+			}
+			run("init", "-q")
+			run("config", "core.autocrlf", "false")
+			settings := filepath.Join(repo, ".entire", "settings.json")
+			if err := os.MkdirAll(filepath.Dir(settings), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(settings, []byte("{\r\n  \"enabled\": true\r\n}\r\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			run("add", ".entire")
+			run("commit", "-qm", "settings")
+			orig := runEntireEnable
+			runEntireEnable = func(root string, _ bool, _ io.Writer) error {
+				return os.WriteFile(filepath.Join(root, ".entire", "settings.json"), []byte(tc.rewrite), 0o644)
+			}
+			t.Cleanup(func() { runEntireEnable = orig })
+			if err := Bootstrap(repo, "", io.Discard); err != nil {
+				t.Fatal(err)
+			}
+			if got, _ := os.ReadFile(settings); string(got) != tc.want {
+				t.Fatalf("settings.json = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestBootstrapKeepsTrackedHooks(t *testing.T) {
 	repo := t.TempDir()
 	run := func(args ...string) string {

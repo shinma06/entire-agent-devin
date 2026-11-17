@@ -68,9 +68,11 @@ func Bootstrap(repoRoot, checkpointRepo string, out io.Writer) error {
 	if err := privatizeTrackedHooks(repoRoot); err != nil {
 		return err
 	}
-	restore := keepTrackedEntireHooks(repoRoot)
+	restoreHooks := keepTrackedEntireHooks(repoRoot)
+	restoreSettings := keepTrackedSettingsLineEndings(repoRoot)
 	err = runEntireEnable(repoRoot, localOnly, out)
-	restore()
+	restoreHooks()
+	restoreSettings()
 	if err != nil {
 		return err
 	}
@@ -140,6 +142,32 @@ func keepTrackedEntireHooks(repoRoot string) func() {
 	info, _ := os.Stat(path)
 	return func() {
 		if cur, err := os.ReadFile(path); err == nil && string(cur) == string(data) {
+			return
+		}
+		_ = os.WriteFile(path, data, info.Mode().Perm())
+	}
+}
+
+// keepTrackedSettingsLineEndings snapshots a committed .entire/settings.json and returns a func
+// restoring it when `entire enable` only rewrote its line endings. With core.autocrlf on Windows
+// the checkout has CRLF and enable writes LF, which would leave the tracked file modified.
+func keepTrackedSettingsLineEndings(repoRoot string) func() {
+	path := filepath.Join(repoRoot, ".entire", "settings.json")
+	if tracked, err := gitOut(repoRoot, "ls-files", "--", ".entire/settings.json"); err != nil || tracked == "" {
+		return func() {}
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return func() {}
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return func() {}
+	}
+	lf := func(b []byte) string { return strings.ReplaceAll(string(b), "\r\n", "\n") }
+	return func() {
+		cur, err := os.ReadFile(path)
+		if err != nil || string(cur) == string(data) || lf(cur) != lf(data) {
 			return
 		}
 		_ = os.WriteFile(path, data, info.Mode().Perm())
