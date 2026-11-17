@@ -10,13 +10,26 @@ import (
 
 func runHookCommand(t *testing.T, repo, home, hook, payload string) {
 	t.Helper()
-	cmd := exec.Command("sh", "-c", hookCommand(hook))
+	cmd := exec.Command("sh", "-c", isolatedHookCommand(t, hook))
 	cmd.Dir = repo
 	cmd.Env = []string{"PATH=" + filepath.Dir(gitPath(t)) + ":/usr/bin:/bin", "HOME=" + home, "LOG=" + filepath.Join(home, "log")}
 	cmd.Stdin = strings.NewReader(payload)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("%s: hook command must exit 0: %v\n%s", hook, err, out)
 	}
+}
+
+// isolatedHookCommand drops the machine-wide search dirs from the wrapper's
+// PATH so entire installed on the test machine (e.g. /usr/local/bin on Devin
+// VMs) cannot change the outcome; the $HOME-relative dirs stay.
+func isolatedHookCommand(t *testing.T, hook string) string {
+	t.Helper()
+	abs := ":" + strings.Join(toolAbsDirs, ":")
+	cmd := hookCommand(hook)
+	if !strings.Contains(cmd, abs) {
+		t.Fatalf("hook command has no %q to drop", abs)
+	}
+	return strings.Replace(cmd, abs, "", 1)
 }
 
 func initOptedInRepo(t *testing.T, repo string) {
@@ -166,7 +179,7 @@ func TestHookCommandUsesDevinProjectDir(t *testing.T) {
 	}
 	repo, home := t.TempDir(), t.TempDir()
 	initOptedInRepo(t, repo)
-	cmd := exec.Command("sh", "-c", hookCommand(HookSessionStart))
+	cmd := exec.Command("sh", "-c", isolatedHookCommand(t, HookSessionStart))
 	cmd.Dir = home
 	cmd.Env = []string{"PATH=" + filepath.Dir(gitPath(t)) + ":/usr/bin:/bin", "HOME=" + home, "DEVIN_PROJECT_DIR=" + repo}
 	cmd.Stdin = strings.NewReader(`{"source":"startup"}`)
