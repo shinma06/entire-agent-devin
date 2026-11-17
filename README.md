@@ -68,7 +68,8 @@ Starting sessions:
 - Specify the repository the work is for, so the session is recorded there (`DEVIN_PROJECT_DIR`) and that
   repository's blueprint runs. Sessions without one still run the project hooks of the repositories in the
   snapshot, without `DEVIN_PROJECT_DIR`, so their records land in whichever repository the hook's working
-  directory is in (or are queued there).
+  directory is in (or are queued there). Hooks only record in a git repository that opted in (a committed or local
+  `.entire/settings*.json`, or these hooks in `.devin/hooks.v1.json`); anywhere else the payload is dropped.
 - Devin macOS and Windows VMs did not run project hooks at all in our tests (no hook executions were logged), so
   sessions there are not recorded yet even with the tools installed.
 - Entire only honours `external_agents` from the untracked `.entire/settings.local.json` (set by `bootstrap`);

@@ -10,12 +10,51 @@ import (
 
 func runHookCommand(t *testing.T, repo, home, hook, payload string) {
 	t.Helper()
-	cmd := exec.Command("sh", "-c", hookCommand(hook))
+	cmd := exec.Command("sh", "-c", isolatedHookCommand(t, hook))
 	cmd.Dir = repo
 	cmd.Env = []string{"PATH=" + filepath.Dir(gitPath(t)) + ":/usr/bin:/bin", "HOME=" + home, "LOG=" + filepath.Join(home, "log")}
 	cmd.Stdin = strings.NewReader(payload)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("%s: hook command must exit 0: %v\n%s", hook, err, out)
+	}
+}
+
+// isolatedHookCommand drops the machine-wide search dirs from the wrapper's
+// PATH so entire installed on the test machine (e.g. /usr/local/bin on Devin
+// VMs) cannot change the outcome; the $HOME-relative dirs stay.
+func isolatedHookCommand(t *testing.T, hook string) string {
+	t.Helper()
+	abs := ":" + strings.Join(toolAbsDirs, ":")
+	cmd := hookCommand(hook)
+	if !strings.Contains(cmd, abs) {
+		t.Fatalf("hook command has no %q to drop", abs)
+	}
+	return strings.Replace(cmd, abs, "", 1)
+}
+
+func initOptedInRepo(t *testing.T, repo string) {
+	t.Helper()
+	if out, err := exec.Command(gitPath(t), "init", "-q", repo).CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v %s", err, out)
+	}
+	if _, err := InstallHooks(repo, false); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestHookCommandIgnoresReposThatDidNotOptIn(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("sh not available")
+	}
+	plain, notRepo, home := t.TempDir(), t.TempDir(), t.TempDir()
+	if out, err := exec.Command(gitPath(t), "init", "-q", plain).CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v %s", err, out)
+	}
+	for _, dir := range []string{plain, notRepo} {
+		runHookCommand(t, dir, home, HookUserPromptSubmit, `{"prompt":"one"}`)
+		if _, err := os.Stat(filepath.Join(dir, ".entire")); !os.IsNotExist(err) {
+			t.Fatalf("%s: hook must not touch a directory that did not opt in: %v", dir, err)
+		}
 	}
 }
 
@@ -33,9 +72,7 @@ func TestHookCommandQueuesWithoutEntireThenReplays(t *testing.T) {
 		t.Skip("sh not available")
 	}
 	repo, home := t.TempDir(), t.TempDir()
-	if out, err := exec.Command(gitPath(t), "init", "-q", repo).CombinedOutput(); err != nil {
-		t.Fatalf("git init: %v %s", err, out)
-	}
+	initOptedInRepo(t, repo)
 
 	runHookCommand(t, repo, home, HookUserPromptSubmit, `{"prompt":"one"}`)
 	runHookCommand(t, repo, home, HookPostToolUse, `{"tool":"exec"}`)
@@ -141,10 +178,8 @@ func TestHookCommandUsesDevinProjectDir(t *testing.T) {
 		t.Skip("sh not available")
 	}
 	repo, home := t.TempDir(), t.TempDir()
-	if out, err := exec.Command(gitPath(t), "init", "-q", repo).CombinedOutput(); err != nil {
-		t.Fatalf("git init: %v %s", err, out)
-	}
-	cmd := exec.Command("sh", "-c", hookCommand(HookSessionStart))
+	initOptedInRepo(t, repo)
+	cmd := exec.Command("sh", "-c", isolatedHookCommand(t, HookSessionStart))
 	cmd.Dir = home
 	cmd.Env = []string{"PATH=" + filepath.Dir(gitPath(t)) + ":/usr/bin:/bin", "HOME=" + home, "DEVIN_PROJECT_DIR=" + repo}
 	cmd.Stdin = strings.NewReader(`{"source":"startup"}`)

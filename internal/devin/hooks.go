@@ -76,9 +76,13 @@ func AddToolDirsToPath() {
 // GitHub checkpoint_remote explicitly so older entire-agent-devin binaries work too;
 // on success the failed payloads are retried. The hooks file is kept as it was, since
 // bootstrap's `entire enable` lets an older binary append its own wrappers to it.
+// hookCommand only records in git repos that opted in to Entire (committed or
+// local settings, or these hooks in .devin/hooks.v1.json); elsewhere it drops
+// the payload so unrelated directories are never bootstrapped or filled.
 func hookCommand(hook string) string {
 	return hookWrapperPrefix() +
-		`cd "${DEVIN_PROJECT_DIR:-.}" 2>/dev/null; r="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"; cd "$r"; q="$r/.entire/tmp/devin-pending"; ` +
+		`cd "${DEVIN_PROJECT_DIR:-.}" 2>/dev/null; r="$(git rev-parse --show-toplevel 2>/dev/null)" || { cat >/dev/null; exit 0; }; cd "$r"; ` +
+		`[ -f "$r/.entire/settings.json" ] || [ -f "$r/.entire/settings.local.json" ] || grep -qs 'entire hooks devin' "$r/.devin/hooks.v1.json" || { cat >/dev/null; exit 0; }; q="$r/.entire/tmp/devin-pending"; ` +
 		`if command -v entire >/dev/null 2>&1 && command -v entire-agent-devin >/dev/null 2>&1; then ` +
 		`{ grep -qsE '"external_agents": *true' "$r/.entire/settings.local.json" && grep -qsE '"checkpoint_push_remote"|"push_sessions": *false' "$r/.entire/settings.local.json"; } || { ` +
 		`o="$(tr -d ' \t\r\n' 2>/dev/null <"$r/.entire/settings.json" | sed -n 's/.*"checkpoint_remote":{\([^}]*\)}.*/\1/p')"; c=; ` +
