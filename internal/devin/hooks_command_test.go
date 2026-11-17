@@ -179,8 +179,15 @@ func TestHookCommandBootstrapsWithCommittedCheckpointRepo(t *testing.T) {
 	if err := os.MkdirAll(bin, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	// An older entire-agent-devin that needs --checkpoint-repo.
-	agent := "#!/bin/sh\necho \"$*\" >>\"$LOG\"; [ \"$2\" = --checkpoint-repo ] && [ -n \"$3\" ] && echo '{\"checkpoint_push_remote\":\"checkpoints\"}' >.entire/settings.local.json\n"
+	hooksFile := filepath.Join(repo, ".devin", "hooks.v1.json")
+	if err := os.MkdirAll(filepath.Dir(hooksFile), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(hooksFile, []byte("committed\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// An older entire-agent-devin that needs --checkpoint-repo and appends its own hooks.
+	agent := "#!/bin/sh\necho \"$*\" >>\"$LOG\"; echo older >>.devin/hooks.v1.json; [ \"$2\" = --checkpoint-repo ] && [ -n \"$3\" ] && echo '{\"checkpoint_push_remote\":\"checkpoints\"}' >.entire/settings.local.json\n"
 	entire := "#!/bin/sh\nprintf '%s|' \"$*\" >>\"$LOG\"; cat >>\"$LOG\"; echo >>\"$LOG\"\n"
 	for name, body := range map[string]string{"entire-agent-devin": agent, "entire": entire} {
 		if err := os.WriteFile(filepath.Join(bin, name), []byte(body), 0o755); err != nil {
@@ -197,6 +204,12 @@ func TestHookCommandBootstrapsWithCommittedCheckpointRepo(t *testing.T) {
 	}
 	if files, _ := filepath.Glob(filepath.Join(failed, "*")); len(files) != 0 {
 		t.Fatalf("failed payloads not retried: %v", files)
+	}
+	if b, _ := os.ReadFile(hooksFile); string(b) != "committed\n" {
+		t.Fatalf("hooks file changed by bootstrap: %q", b)
+	}
+	if files, _ := filepath.Glob(filepath.Join(repo, ".entire", "tmp", "devin-pending", ".*")); len(files) != 0 {
+		t.Fatalf("leftover temp files: %v", files)
 	}
 }
 
