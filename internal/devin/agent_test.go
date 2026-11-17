@@ -267,3 +267,37 @@ func jsonString(t *testing.T, s string) string {
 	}
 	return string(b)
 }
+
+func TestParseHookSubagents(t *testing.T) {
+	repo := t.TempDir()
+	input := `{"sessions":[{"title":"Verify hooks on Windows","prompt":"READ-ONLY\nmore"}]}`
+	pre := `{"hook_event_name":"PreToolUse","session_id":"devin-parent","prompt_id":"p1","tool_name":"devin_session_create","tool_use_id":"t1","tool_input":` + input + `}`
+	post := `{"hook_event_name":"PostToolUse","session_id":"devin-parent","prompt_id":"p1","tool_name":"devin_session_create","tool_use_id":"t1","tool_input":` + input +
+		`,"tool_response":"{'success': True, 'output': 'Created 1 session(s):\\n\\n1. session_id=a3e093f7f8b84af6bd645a2acbbc9790\\n', 'error': None}"}`
+	other := `{"hook_event_name":"PreToolUse","session_id":"devin-parent","prompt_id":"p1","tool_name":"exec","tool_use_id":"t0"}`
+
+	// The first hook of an unseen prompt opens the turn instead.
+	if ev, err := ParseHook(HookPreToolUse, strings.NewReader(strings.Replace(pre, `"t1"`, `"t9"`, 1)), repo); err != nil || ev == nil || ev.Type != protocol.EventTurnStart {
+		t.Fatalf("first pre-tool-use: %+v, %v", ev, err)
+	}
+	if ev, err := ParseHook(HookPreToolUse, strings.NewReader(other), repo); err != nil || ev != nil {
+		t.Fatalf("other tool: %+v, %v", ev, err)
+	}
+	ev, err := ParseHook(HookPreToolUse, strings.NewReader(pre), repo)
+	if err != nil || ev == nil || ev.Type != protocol.EventSubagentStart || ev.ToolUseID != "t1" || ev.SubagentType != "devin" || ev.TaskDescription != "Verify hooks on Windows" {
+		t.Fatalf("subagent start: %+v, %v", ev, err)
+	}
+	ev, err = ParseHook(HookPostToolUse, strings.NewReader(post), repo)
+	if err != nil || ev == nil || ev.Type != protocol.EventSubagentEnd || ev.ToolUseID != "t1" || ev.SubagentID != "devin-a3e093f7f8b84af6bd645a2acbbc9790" {
+		t.Fatalf("subagent end: %+v, %v", ev, err)
+	}
+	if ev, err := ParseHook(HookPostToolUse, strings.NewReader(post), repo); err != nil || ev != nil {
+		t.Fatalf("duplicate delivery: %+v, %v", ev, err)
+	}
+}
+
+func TestSubagentTaskFallsBackToPrompt(t *testing.T) {
+	if got := subagentTask(json.RawMessage(`{"sessions":[{"prompt":"  Fix the bug\nDetails"}]}`)); got != "Fix the bug" {
+		t.Fatalf("got %q", got)
+	}
+}

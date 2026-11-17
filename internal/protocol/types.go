@@ -6,11 +6,13 @@ import "encoding/json"
 const ProtocolVersion = 1
 
 const (
-	EventSessionStart = 1
-	EventTurnStart    = 2
-	EventTurnEnd      = 3
-	EventCompaction   = 4
-	EventSessionEnd   = 5
+	EventSessionStart  = 1
+	EventTurnStart     = 2
+	EventTurnEnd       = 3
+	EventCompaction    = 4
+	EventSessionEnd    = 5
+	EventSubagentStart = 6
+	EventSubagentEnd   = 7
 )
 
 type Capabilities struct {
@@ -68,6 +70,12 @@ type Event struct {
 	Model      string            `json:"model,omitempty"`
 	Timestamp  string            `json:"timestamp,omitempty"`
 	Metadata   map[string]string `json:"metadata,omitempty"`
+
+	ToolUseID       string          `json:"tool_use_id,omitempty"`
+	SubagentID      string          `json:"subagent_id,omitempty"`
+	ToolInput       json.RawMessage `json:"tool_input,omitempty"`
+	SubagentType    string          `json:"subagent_type,omitempty"`
+	TaskDescription string          `json:"task_description,omitempty"`
 }
 
 type Chunks struct {

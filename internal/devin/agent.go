@@ -105,10 +105,24 @@ func ParseHook(hook string, stdin io.Reader, repoRoot string) (*protocol.Event, 
 		rec.Kind, ev.Type = KindUser, protocol.EventTurnStart
 		rec.Prompt = cleanPrompt(p.Prompt)
 		ev.Prompt = rec.Prompt
+	case HookPreToolUse:
+		if p.ToolName != SubagentTool {
+			return nil, nil
+		}
+		rec.Kind, ev.Type = KindSubagentStart, protocol.EventSubagentStart
+		rec.ToolName, rec.ToolUseID = p.ToolName, p.ToolUseID
+		subagentEvent(ev, p)
 	case HookPostToolUse:
 		rec.Kind, ev = KindTool, nil
 		rec.ToolName, rec.ToolUseID = p.ToolName, p.ToolUseID
 		rec.ToolInput, rec.ToolResponse = normalizeJSON(p.ToolInput), normalizeJSON(p.ToolResponse)
+		if p.ToolName == SubagentTool {
+			ev = &protocol.Event{Type: protocol.EventSubagentEnd, SessionID: p.SessionID, SessionRef: ref, Timestamp: ts, Model: p.Model}
+			subagentEvent(ev, p)
+			if ids := childSessionIDs(rec.ToolResponse); len(ids) > 0 {
+				ev.SubagentID = ids[0]
+			}
+		}
 	case HookStop:
 		rec.Kind, ev.Type = KindAssistant, protocol.EventTurnEnd
 		rec.Message = p.LastAssistantMessage
@@ -121,7 +135,7 @@ func ParseHook(hook string, stdin io.Reader, repoRoot string) (*protocol.Event, 
 	}
 
 	opened := false
-	if hook == HookPostToolUse && p.PromptID != "" {
+	if (hook == HookPostToolUse || hook == HookPreToolUse) && p.PromptID != "" {
 		// Devin fires no UserPromptSubmit for a session's initial prompt, so the first
 		// tool call of an unseen prompt opens the turn instead.
 		user := Record{V: 1, TS: ts, SessionID: p.SessionID, PromptID: p.PromptID, Kind: KindUser}
@@ -149,6 +163,56 @@ func ParseHook(hook string, stdin io.Reader, repoRoot string) (*protocol.Event, 
 		return nil, err
 	}
 	return ev, nil
+}
+
+// subagentEvent fills the subagent fields Entire reads from a SubagentStart/End event.
+func subagentEvent(ev *protocol.Event, p payload) {
+	ev.ToolUseID, ev.SubagentType = p.ToolUseID, "devin"
+	ev.ToolInput = normalizeJSON(p.ToolInput)
+	ev.TaskDescription = subagentTask(ev.ToolInput)
+}
+
+// subagentTask is the first child session's title, or the first line of its prompt.
+func subagentTask(input json.RawMessage) string {
+	var in struct {
+		Sessions []struct {
+			Title  string `json:"title"`
+			Prompt string `json:"prompt"`
+		} `json:"sessions"`
+	}
+	if json.Unmarshal(input, &in) != nil || len(in.Sessions) == 0 {
+		return ""
+	}
+	task := strings.TrimSpace(in.Sessions[0].Title)
+	if task == "" {
+		task, _, _ = strings.Cut(strings.TrimSpace(in.Sessions[0].Prompt), "\n")
+	}
+	if r := []rune(task); len(r) > 200 {
+		task = string(r[:200])
+	}
+	return task
+}
+
+var childSessionIDPattern = regexp.MustCompile(`session_id=([0-9a-f]{32})`)
+
+// childSessionIDs returns the Devin session IDs a devin_session_create response reports.
+func childSessionIDs(response json.RawMessage) []string {
+	var text string
+	if json.Unmarshal(response, &text) != nil {
+		var obj struct {
+			Output string `json:"output"`
+		}
+		if json.Unmarshal(response, &obj) != nil {
+			text = string(response)
+		} else {
+			text = obj.Output
+		}
+	}
+	var ids []string
+	for _, m := range childSessionIDPattern.FindAllStringSubmatch(text, -1) {
+		ids = append(ids, "devin-"+m[1])
+	}
+	return ids
 }
 
 func turnKey(promptID string) string { return HookUserPromptSubmit + "|" + promptID }
