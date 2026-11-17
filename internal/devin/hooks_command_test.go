@@ -19,6 +19,32 @@ func runHookCommand(t *testing.T, repo, home, hook, payload string) {
 	}
 }
 
+func initOptedInRepo(t *testing.T, repo string) {
+	t.Helper()
+	if out, err := exec.Command(gitPath(t), "init", "-q", repo).CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v %s", err, out)
+	}
+	if _, err := InstallHooks(repo, false); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestHookCommandIgnoresReposThatDidNotOptIn(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("sh not available")
+	}
+	plain, notRepo, home := t.TempDir(), t.TempDir(), t.TempDir()
+	if out, err := exec.Command(gitPath(t), "init", "-q", plain).CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v %s", err, out)
+	}
+	for _, dir := range []string{plain, notRepo} {
+		runHookCommand(t, dir, home, HookUserPromptSubmit, `{"prompt":"one"}`)
+		if _, err := os.Stat(filepath.Join(dir, ".entire")); !os.IsNotExist(err) {
+			t.Fatalf("%s: hook must not touch a directory that did not opt in: %v", dir, err)
+		}
+	}
+}
+
 func gitPath(t *testing.T) string {
 	t.Helper()
 	p, err := exec.LookPath("git")
@@ -33,9 +59,7 @@ func TestHookCommandQueuesWithoutEntireThenReplays(t *testing.T) {
 		t.Skip("sh not available")
 	}
 	repo, home := t.TempDir(), t.TempDir()
-	if out, err := exec.Command(gitPath(t), "init", "-q", repo).CombinedOutput(); err != nil {
-		t.Fatalf("git init: %v %s", err, out)
-	}
+	initOptedInRepo(t, repo)
 
 	runHookCommand(t, repo, home, HookUserPromptSubmit, `{"prompt":"one"}`)
 	runHookCommand(t, repo, home, HookPostToolUse, `{"tool":"exec"}`)
@@ -141,9 +165,7 @@ func TestHookCommandUsesDevinProjectDir(t *testing.T) {
 		t.Skip("sh not available")
 	}
 	repo, home := t.TempDir(), t.TempDir()
-	if out, err := exec.Command(gitPath(t), "init", "-q", repo).CombinedOutput(); err != nil {
-		t.Fatalf("git init: %v %s", err, out)
-	}
+	initOptedInRepo(t, repo)
 	cmd := exec.Command("sh", "-c", hookCommand(HookSessionStart))
 	cmd.Dir = home
 	cmd.Env = []string{"PATH=" + filepath.Dir(gitPath(t)) + ":/usr/bin:/bin", "HOME=" + home, "DEVIN_PROJECT_DIR=" + repo}
