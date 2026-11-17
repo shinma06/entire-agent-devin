@@ -27,12 +27,13 @@ type Record struct {
 }
 
 const (
-	KindSessionStart = "session_start"
-	KindUser         = "user"
-	KindTool         = "tool"
-	KindAssistant    = "assistant"
-	KindCompaction   = "compaction"
-	KindSessionEnd   = "session_end"
+	KindSessionStart  = "session_start"
+	KindUser          = "user"
+	KindTool          = "tool"
+	KindSubagentStart = "subagent_start"
+	KindAssistant     = "assistant"
+	KindCompaction    = "compaction"
+	KindSessionEnd    = "session_end"
 )
 
 const messageTool = "message_user"

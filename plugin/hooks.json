@@ -23,6 +23,18 @@
       ]
     }
   ],
+  "PreToolUse": [
+    {
+      "matcher": "devin_session_create",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "PATH=\"$PATH:$HOME/.local/bin:$HOME/go/bin:$HOME/bin:/opt/homebrew/bin:/usr/local/bin\"; command -v entire-agent-devin >/dev/null 2>&1 || exit 0; p=$(cat); entire-agent-devin dispatch-targets --bootstrap 2>/dev/null | while IFS= read -r d; do (cd \"$d\" && printf '%s' \"$p\" | entire hooks devin pre-tool-use >/dev/null); done; exit 0",
+          "timeout": 60
+        }
+      ]
+    }
+  ],
   "PostToolUse": [
     {
       "matcher": "",

@@ -13,7 +13,8 @@ Devin has no transcript file, so the integration builds one from Devin hook payl
 |---|---|---|
 | `SessionStart` | `session-start` | SessionStart |
 | `UserPromptSubmit` | `user-prompt-submit` | TurnStart |
-| `PostToolUse` | `post-tool-use` | (transcript only) |
+| `PreToolUse` (matcher `devin_session_create`) | `pre-tool-use` | SubagentStart |
+| `PostToolUse` | `post-tool-use` | (transcript only; SubagentEnd for `devin_session_create`, `subagent_id` = child session) |
 | `Stop` | `stop` | TurnEnd (checkpoint) |
 | `PostCompaction` | `post-compaction` | Compaction |
 | `SessionEnd` | `session-end` | SessionEnd (not fired by cloud Devin) |

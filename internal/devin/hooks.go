@@ -14,6 +14,7 @@ import (
 const (
 	HookSessionStart     = "session-start"
 	HookUserPromptSubmit = "user-prompt-submit"
+	HookPreToolUse       = "pre-tool-use"
 	HookPostToolUse      = "post-tool-use"
 	HookStop             = "stop"
 	HookPostCompaction   = "post-compaction"
@@ -22,14 +23,19 @@ const (
 	entireHookPrefix = "entire hooks devin "
 )
 
-// devinHookEvents maps Devin hook event names to Entire hook names.
-var devinHookEvents = []struct{ Event, Hook string }{
-	{"SessionStart", HookSessionStart},
-	{"UserPromptSubmit", HookUserPromptSubmit},
-	{"PostToolUse", HookPostToolUse},
-	{"Stop", HookStop},
-	{"PostCompaction", HookPostCompaction},
-	{"SessionEnd", HookSessionEnd},
+// SubagentTool is the Devin tool that starts child sessions, recorded as Entire subagents.
+const SubagentTool = "devin_session_create"
+
+// devinHookEvents maps Devin hook event names to Entire hook names. PreToolUse only
+// matches SubagentTool, so other tool calls do not pay for a second hook.
+var devinHookEvents = []struct{ Event, Hook, Matcher string }{
+	{"SessionStart", HookSessionStart, ""},
+	{"UserPromptSubmit", HookUserPromptSubmit, ""},
+	{"PreToolUse", HookPreToolUse, SubagentTool},
+	{"PostToolUse", HookPostToolUse, ""},
+	{"Stop", HookStop, ""},
+	{"PostCompaction", HookPostCompaction, ""},
+	{"SessionEnd", HookSessionEnd, ""},
 }
 
 // Install locations of entire and entire-agent-devin (install.sh/install.ps1,
@@ -268,7 +274,7 @@ func InstallHooks(repoRoot string, force bool) (int, error) {
 			return 0, err
 		}
 		entire, err := marshalJSON(map[string]any{
-			"matcher": "",
+			"matcher": e.Matcher,
 			"hooks":   []hookEntry{{Type: "command", Command: hookCommand(e.Hook), Timeout: 60}},
 		})
 		if err != nil {
