@@ -28,11 +28,27 @@ func TestDoctorRepo(t *testing.T) {
 	if _, err := InstallHooks(repo, false); err != nil {
 		t.Fatal(err)
 	}
-	if err := allowExternalAgents(repo, true); err != nil {
+	if err := allowExternalAgents(repo); err != nil {
+		t.Fatal(err)
+	}
+	if err := keepCheckpointsLocal(repo); err != nil {
 		t.Fatal(err)
 	}
 	if fails := check(); len(fails) != 0 {
 		t.Fatalf("bootstrapped clone failures = %q", fails)
+	}
+	pinned := `{"external_agents": true, "strategy_options": {"checkpoint_push_remote": "checkpoints"}}`
+	if err := os.WriteFile(filepath.Join(repo, ".entire", "settings.local.json"), []byte(pinned), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if fails := check(); len(fails) != 1 || !strings.Contains(fails[0], "missing") {
+		t.Fatalf("failures without the checkpoint remote = %q", fails)
+	}
+	if out, err := exec.Command("git", "-C", repo, "remote", "add", CheckpointRemote, "https://github.com/me/ckpt.git").CombinedOutput(); err != nil {
+		t.Fatalf("git remote add: %v: %s", err, out)
+	}
+	if fails := check(); len(fails) != 0 {
+		t.Fatalf("pinned clone failures = %q", fails)
 	}
 	failed := filepath.Join(repo, ".entire", "tmp", "devin-pending", "failed")
 	if err := os.MkdirAll(failed, 0o700); err != nil {

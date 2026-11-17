@@ -66,12 +66,19 @@ func doctorRepo(root string, count func(bool, string, ...any)) {
 			count(false, "hooks: %s has %d Entire hook groups", event, n)
 		}
 	}
-	if NeedsBootstrap(root) {
+	settings, _ := readLocalSettings(root)
+	pushRemote := settings.StrategyOptions.CheckpointPushRemote
+	switch {
+	case NeedsBootstrap(root):
 		count(false, "settings.local.json: external_agents or a safe checkpoint destination missing (run `entire-agent-devin bootstrap`)")
-	} else if _, err := gitOut(root, "remote", "get-url", CheckpointRemote); err == nil {
-		count(true, "settings.local.json: external_agents on, checkpoints pushed to the %s remote", CheckpointRemote)
-	} else {
+	case pushRemote == "":
 		count(true, "settings.local.json: external_agents on, checkpoints kept local")
+	default:
+		if _, err := gitOut(root, "remote", "get-url", pushRemote); err != nil {
+			count(false, "settings.local.json: checkpoint remote %q missing (run `entire-agent-devin bootstrap --checkpoint-repo <owner/repo>`)", pushRemote)
+		} else {
+			count(true, "settings.local.json: external_agents on, checkpoints pushed to the %q remote", pushRemote)
+		}
 	}
 	q := filepath.Join(root, ".entire", "tmp", "devin-pending")
 	pending, failed := queued(q), queued(filepath.Join(q, "failed"))
