@@ -2,6 +2,7 @@ package devin
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"os/exec"
@@ -84,12 +85,30 @@ func TestBootstrapLocalOnly(t *testing.T) {
 		t.Fatal("fresh clone does not need bootstrap")
 	}
 	var localOnly []bool
+	enableErr := errors.New("entire enable failed")
 	orig := runEntireEnable
-	runEntireEnable = func(_ string, local bool, _ io.Writer) error { localOnly = append(localOnly, local); return nil }
+	runEntireEnable = func(_ string, local bool, _ io.Writer) error { localOnly = append(localOnly, local); return enableErr }
 	t.Cleanup(func() { runEntireEnable = orig })
 
+	if err := Bootstrap(repo, "", io.Discard); err == nil {
+		t.Fatal("Bootstrap ignored a failed entire enable")
+	}
+	if !NeedsBootstrap(repo) {
+		t.Fatal("failed local-only bootstrap is not retried")
+	}
+	q := filepath.Join(repo, ".entire", "tmp", "devin-pending")
+	if err := os.MkdirAll(filepath.Join(q, "failed"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(q, "failed", "1-1.stop"), []byte("{}"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	enableErr, localOnly = nil, nil
 	if err := Bootstrap(repo, "", io.Discard); err != nil {
 		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(q, "1-1.stop")); err != nil {
+		t.Fatalf("rejected payload not requeued: %v", err)
 	}
 	if len(localOnly) != 1 || !localOnly[0] {
 		t.Fatalf("entire enable local-only calls = %v", localOnly)
