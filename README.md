@@ -71,8 +71,8 @@ Starting sessions:
   snapshot, without `DEVIN_PROJECT_DIR`, so their records land in whichever repository the hook's working
   directory is in (or are queued there). Hooks only record in a git repository that opted in (a committed or local
   `.entire/settings*.json`, or these hooks in `.devin/hooks.v1.json`); anywhere else the payload is dropped.
-- Devin macOS and Windows VMs did not run project hooks at all in our tests (no hook executions were logged), so
-  sessions there are not recorded yet even with the tools installed.
+- Devin macOS and Windows VMs only run project hooks when the snapshot already contains the repository
+  (environment setting **Clone repositories on all platforms**).
 - Entire only honours `external_agents` from the untracked `.entire/settings.local.json` (set by `bootstrap`);
   otherwise it answers `unknown agent "devin"`. Hooks bootstrap fresh clones themselves; commit the
   `checkpoint_remote` in `.entire/settings.json` to also push checkpoints to that private repository.
@@ -87,6 +87,25 @@ It runs `entire hooks devin <hook>` in every repository listed by `entire-agent-
 (current dir, `$DEVIN_PROJECT_DIR`, and `$ENTIRE_DEVIN_REPOS` globs, default `~/repos/*`) that has Entire's Devin hooks installed.
 With `--bootstrap` (used by the plugin), candidates that opted into Entire (Devin hooks or a committed
 `.entire/settings.json`) are bootstrapped first, so `external_agents` is on in every repository a session touches.
+
+## Child sessions and the Devin API
+
+Child sessions (`devin_session_create`) run on other VMs. The parent records them as Entire subagents
+(SubagentStart/End with the child's `devin-<id>`); their chat history and usage come from the Devin v3 API:
+
+```bash
+entire-agent-devin sync                      # children of the latest session transcript (or --session-id devin-<id>)
+entire-agent-devin import devin-<id> ...     # any session, e.g. history from before Entire was set up
+entire session attach devin-<id> --agent devin   # link an imported transcript to a commit
+```
+
+Both read the key from `DEVIN_API_KEY`: an organization service user key whose role can view organization
+sessions (`ViewOrgSessions`; the Member role works). They only read sessions and messages, never create one.
+`import` writes the chat messages (not tool calls) to `.entire/tmp/devin/devin-<id>.jsonl` and never overwrites a
+transcript recorded by hooks. `sync` also appends each child's status, ACUs and pull requests to the parent
+transcript (`subagent_sync` records), so the next checkpoint carries them; Entire's token fields stay 0 because
+Devin bills in ACUs. The key is scrubbed from everything written, and Entire redacts secrets again when it
+stores a checkpoint.
 
 ## Checkpoint storage
 
