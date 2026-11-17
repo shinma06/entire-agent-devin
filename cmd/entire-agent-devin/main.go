@@ -231,6 +231,14 @@ func run(cmd string, args []string, in io.Reader, out io.Writer) error {
 			return err
 		}
 		return devin.Bootstrap(root, f["checkpoint-repo"], os.Stderr)
+	case "import":
+		return devin.Import(root, args, out)
+	case "sync":
+		f, err := flags("session-id")
+		if err != nil {
+			return err
+		}
+		return devin.Sync(root, f["session-id"], out)
 	case "doctor":
 		if n := devin.Doctor(out); n > 0 {
 			return fmt.Errorf("doctor: %d problem(s)", n)

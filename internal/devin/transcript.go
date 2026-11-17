@@ -24,6 +24,7 @@ type Record struct {
 	ToolInput    json.RawMessage `json:"tool_input,omitempty"`
 	ToolResponse json.RawMessage `json:"tool_response,omitempty"`
 	Message      string          `json:"message,omitempty"`
+	Devin        *SessionInfo    `json:"devin,omitempty"`
 }
 
 const (
@@ -31,6 +32,7 @@ const (
 	KindUser          = "user"
 	KindTool          = "tool"
 	KindSubagentStart = "subagent_start"
+	KindSubagentSync  = "subagent_sync"
 	KindAssistant     = "assistant"
 	KindCompaction    = "compaction"
 	KindSessionEnd    = "session_end"
