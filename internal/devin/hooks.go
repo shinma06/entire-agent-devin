@@ -70,14 +70,20 @@ func AddToolDirsToPath() {
 // hookCommand returns the POSIX shell command installed for hook. It never fails
 // the hook: when entire or entire-agent-devin cannot be found the payload is
 // queued under .entire/tmp/devin-pending (git-ignored, owner-only) and replayed,
-// oldest first, by the next hook that can reach both; a replay entire rejects
-// is kept in devin-pending/failed for inspection. It runs from the repository of
-// DEVIN_PROJECT_DIR, falling back to the hook's working directory.
+// oldest first, by the next hook that can reach both; a payload entire rejects
+// is kept in devin-pending/failed. It runs in the DEVIN_PROJECT_DIR repository.
+// An unbootstrapped clone is bootstrapped first, passing the committed
+// GitHub checkpoint_remote explicitly so older entire-agent-devin binaries work too;
+// on success the failed payloads are retried.
 func hookCommand(hook string) string {
 	return hookWrapperPrefix() +
 		`cd "${DEVIN_PROJECT_DIR:-.}" 2>/dev/null; r="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"; cd "$r"; q="$r/.entire/tmp/devin-pending"; ` +
 		`if command -v entire >/dev/null 2>&1 && command -v entire-agent-devin >/dev/null 2>&1; then ` +
-		`grep -qs '"checkpoint_push_remote"' "$r/.entire/settings.local.json" || entire-agent-devin bootstrap </dev/null >/dev/null 2>&1; ` +
+		`grep -qs '"checkpoint_push_remote"' "$r/.entire/settings.local.json" || { ` +
+		`o="$(tr -d ' \t\r\n' <"$r/.entire/settings.json" 2>/dev/null | sed -n 's/.*"checkpoint_remote":{\([^}]*\)}.*/\1/p')"; c=; ` +
+		`case ",$o," in *',"provider":"github",'*) c="$(printf %s ",$o," | sed -n 's/.*,"repo":"\([^"\\/]*\/[^"\\/]*\)",.*/\1/p')";; esac; ` +
+		`entire-agent-devin bootstrap ${c:+--checkpoint-repo "$c"} </dev/null >/dev/null 2>&1 && ` +
+		`for f in "$q"/failed/*; do [ -f "$f" ] && mv -f "$f" "$q/"; done; }; ` +
 		`for f in "$q"/*; do [ -f "$f" ] || continue; if entire hooks devin "${f##*.}" <"$f" >/dev/null 2>&1; then rm -f "$f"; else mkdir -p "$q/failed" && mv -f "$f" "$q/failed/"; fi; done; ` +
 		`mkdir -p "$q" && cat >"$q/.$$" && if ` + entireHookPrefix + hook + ` <"$q/.$$"; then rm -f "$q/.$$"; else mkdir -p "$q/failed" && mv -f "$q/.$$" "$q/failed/$(date +%s)-$$.` + hook + `"; fi; ` +
 		`else mkdir -p "$q" && cat >"$q/.$$" && mv -f "$q/.$$" "$q/$(date +%s)-$(printf %06d "$(ls "$q" | wc -l)")-$$.` + hook + `"; fi; exit 0`

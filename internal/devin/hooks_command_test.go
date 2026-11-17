@@ -155,3 +155,88 @@ func TestHookCommandUsesDevinProjectDir(t *testing.T) {
 		t.Fatalf("payload not queued in DEVIN_PROJECT_DIR: %v", files)
 	}
 }
+
+func TestHookCommandBootstrapsWithCommittedCheckpointRepo(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("sh not available")
+	}
+	repo, home := t.TempDir(), t.TempDir()
+	if out, err := exec.Command(gitPath(t), "init", "-q", repo).CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v %s", err, out)
+	}
+	committed := "{\n  \"strategy_options\": {\n    \"checkpoint_remote\": {\n      \"provider\": \"github\",\n      \"repo\": \"me/ckpt\"\n    }\n  }\n}\n"
+	failed := filepath.Join(repo, ".entire", "tmp", "devin-pending", "failed")
+	if err := os.MkdirAll(failed, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repo, ".entire", "settings.json"), []byte(committed), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(failed, "1-1.session-start"), []byte(`{"source":"startup"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	bin := filepath.Join(home, ".local", "bin")
+	if err := os.MkdirAll(bin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// An older entire-agent-devin that needs --checkpoint-repo.
+	agent := "#!/bin/sh\necho \"$*\" >>\"$LOG\"; [ \"$2\" = --checkpoint-repo ] && [ -n \"$3\" ] && echo '{\"checkpoint_push_remote\":\"checkpoints\"}' >.entire/settings.local.json\n"
+	entire := "#!/bin/sh\nprintf '%s|' \"$*\" >>\"$LOG\"; cat >>\"$LOG\"; echo >>\"$LOG\"\n"
+	for name, body := range map[string]string{"entire-agent-devin": agent, "entire": entire} {
+		if err := os.WriteFile(filepath.Join(bin, name), []byte(body), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	runHookCommand(t, repo, home, HookUserPromptSubmit, `{"prompt":"two"}`)
+	runHookCommand(t, repo, home, HookStop, `{"stop":true}`)
+	log, _ := os.ReadFile(filepath.Join(home, "log"))
+	want := "bootstrap --checkpoint-repo me/ckpt\nhooks devin session-start|{\"source\":\"startup\"}\nhooks devin user-prompt-submit|{\"prompt\":\"two\"}\nhooks devin stop|{\"stop\":true}\n"
+	if string(log) != want {
+		t.Fatalf("calls:\n%s\nwant:\n%s", log, want)
+	}
+	if files, _ := filepath.Glob(filepath.Join(failed, "*")); len(files) != 0 {
+		t.Fatalf("failed payloads not retried: %v", files)
+	}
+}
+
+func TestHookCommandBootstrapPassesOnlyPlainGitHubCheckpointRepos(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("sh not available")
+	}
+	for name, tc := range map[string]struct{ remote, want string }{
+		"github":         {`{"provider":"github","repo":"me/ckpt"}`, "bootstrap --checkpoint-repo me/ckpt"},
+		"repo first":     {`{"repo":"me/ckpt", "provider": "github"}`, "bootstrap --checkpoint-repo me/ckpt"},
+		"other provider": {`{"provider":"gitlab","repo":"me/ckpt"}`, "bootstrap"},
+		"github prefix":  {`{"provider":"githubx","repo":"me/ckpt"}`, "bootstrap"},
+		"escaped":        {`{"provider":"github","repo":"me\/ckpt"}`, "bootstrap"},
+		"not owner/repo": {`{"provider":"github","repo":"a/b/c"}`, "bootstrap"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			repo, home := t.TempDir(), t.TempDir()
+			if out, err := exec.Command(gitPath(t), "init", "-q", repo).CombinedOutput(); err != nil {
+				t.Fatalf("git init: %v %s", err, out)
+			}
+			committed := `{"enabled":true,"strategy_options":{"checkpoint_remote":` + tc.remote + `}}`
+			if err := os.MkdirAll(filepath.Join(repo, ".entire"), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(repo, ".entire", "settings.json"), []byte(committed), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			bin := filepath.Join(home, ".local", "bin")
+			if err := os.MkdirAll(bin, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			for name, body := range map[string]string{"entire-agent-devin": "#!/bin/sh\necho \"$*\" >>\"$LOG\"\n", "entire": "#!/bin/sh\ncat >/dev/null\n"} {
+				if err := os.WriteFile(filepath.Join(bin, name), []byte(body), 0o755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			runHookCommand(t, repo, home, HookStop, `{"stop":true}`)
+			if log, _ := os.ReadFile(filepath.Join(home, "log")); string(log) != tc.want+"\n" {
+				t.Fatalf("calls %q, want %q", log, tc.want)
+			}
+		})
+	}
+}
