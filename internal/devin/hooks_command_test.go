@@ -187,7 +187,7 @@ func TestHookCommandBootstrapsWithCommittedCheckpointRepo(t *testing.T) {
 		t.Fatal(err)
 	}
 	// An older entire-agent-devin that needs --checkpoint-repo and appends its own hooks.
-	agent := "#!/bin/sh\necho \"$*\" >>\"$LOG\"; echo older >>.devin/hooks.v1.json; [ \"$2\" = --checkpoint-repo ] && [ -n \"$3\" ] && echo '{\"checkpoint_push_remote\":\"checkpoints\"}' >.entire/settings.local.json\n"
+	agent := "#!/bin/sh\necho \"$*\" >>\"$LOG\"; echo older >>.devin/hooks.v1.json; [ \"$2\" = --checkpoint-repo ] && [ -n \"$3\" ] && echo '{\"external_agents\": true, \"checkpoint_push_remote\":\"checkpoints\"}' >.entire/settings.local.json\n"
 	entire := "#!/bin/sh\nprintf '%s|' \"$*\" >>\"$LOG\"; cat >>\"$LOG\"; echo >>\"$LOG\"\n"
 	for name, body := range map[string]string{"entire-agent-devin": agent, "entire": entire} {
 		if err := os.WriteFile(filepath.Join(bin, name), []byte(body), 0o755); err != nil {
@@ -251,5 +251,40 @@ func TestHookCommandBootstrapPassesOnlyPlainGitHubCheckpointRepos(t *testing.T) 
 				t.Fatalf("calls %q, want %q", log, tc.want)
 			}
 		})
+	}
+}
+
+func TestHookCommandBootstrapsUnlessLocalSettingsAreComplete(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("sh not available")
+	}
+	for local, wantLog := range map[string]string{
+		"{\n  \"external_agents\": true,\n  \"strategy_options\": {\n    \"push_sessions\": false\n  }\n}\n":  "hooks devin stop\n",
+		"{\n  \"strategy_options\": {\n    \"push_sessions\": false\n  }\n}\n":                                "bootstrap\nhooks devin stop\n",
+		"{\n  \"external_agents\": false,\n  \"strategy_options\": {\n    \"push_sessions\": false\n  }\n}\n": "bootstrap\nhooks devin stop\n",
+	} {
+		repo, home := t.TempDir(), t.TempDir()
+		if out, err := exec.Command(gitPath(t), "init", "-q", repo).CombinedOutput(); err != nil {
+			t.Fatalf("git init: %v %s", err, out)
+		}
+		if err := os.MkdirAll(filepath.Join(repo, ".entire"), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(repo, ".entire", "settings.local.json"), []byte(local), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		bin := filepath.Join(home, ".local", "bin")
+		if err := os.MkdirAll(bin, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		for name, body := range map[string]string{"entire-agent-devin": "#!/bin/sh\necho \"$*\" >>\"$LOG\"\n", "entire": "#!/bin/sh\ncat >/dev/null; echo \"$*\" >>\"$LOG\"\n"} {
+			if err := os.WriteFile(filepath.Join(bin, name), []byte(body), 0o755); err != nil {
+				t.Fatal(err)
+			}
+		}
+		runHookCommand(t, repo, home, HookStop, `{"stop":true}`)
+		if log, _ := os.ReadFile(filepath.Join(home, "log")); string(log) != wantLog {
+			t.Errorf("settings %q: calls %q, want %q", local, log, wantLog)
+		}
 	}
 }
