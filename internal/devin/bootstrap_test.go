@@ -258,3 +258,10 @@ func TestBootstrapKeepsTrackedHooks(t *testing.T) {
 		t.Fatal("hook added after bootstrap did not run")
 	}
 }
+
+func TestEntireEnableRunsNonInteractively(t *testing.T) {
+	env := nonInteractiveEnv()
+	if len(env) == 0 || env[len(env)-1] != "CI=1" {
+		t.Fatalf("entire enable must run with CI=1 so it never waits on a device login: %v", env[len(env)-1:])
+	}
+}

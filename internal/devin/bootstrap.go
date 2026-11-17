@@ -23,9 +23,17 @@ var runEntireEnable = func(repoRoot string, localOnly bool, out io.Writer) error
 	cmd := exec.Command("entire", args...)
 	cmd.Dir = repoRoot
 	cmd.Stdin = nil
+	cmd.Env = nonInteractiveEnv()
 	cmd.Stdout = out
 	cmd.Stderr = out
 	return cmd.Run()
+}
+
+// nonInteractiveEnv keeps `entire enable` from starting a device login it would wait on for
+// minutes (it does when git user.name/email are unset and it thinks it can prompt, e.g. in a
+// Windows snapshot build); without a terminal it fails fast and the hook retries later.
+func nonInteractiveEnv() []string {
+	return append(os.Environ(), "CI=1")
 }
 
 // Bootstrap prepares a fresh clone for Devin sessions: it points the `checkpoints` remote at
